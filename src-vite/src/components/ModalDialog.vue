@@ -53,6 +53,7 @@ const titleBarRef = ref<HTMLDivElement | null>(null);
 const x = ref(0);
 const y = ref(0);
 const isDragging = ref(false);
+const visibleEdge = 96;
 
 let startX = 0;
 let startY = 0;
@@ -84,11 +85,15 @@ const dragMove = (event: MouseEvent) => {
       const boxHeight = modalDialogRef.value.offsetHeight;
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
+      const minX = -(boxWidth - visibleEdge);
+      const maxX = windowWidth - visibleEdge;
+      const minY = 0;
+      const maxY = windowHeight - visibleEdge;
 
-      if (newX < 0) newX = 0;
-      if (newX > windowWidth - boxWidth) newX = windowWidth - boxWidth;
-      if (newY < 0) newY = 0;
-      if (newY > windowHeight - boxHeight) newY = windowHeight - boxHeight;
+      if (newX < minX) newX = minX;
+      if (newX > maxX) newX = maxX;
+      if (newY < minY) newY = minY;
+      if (newY > maxY) newY = maxY;
     }
     
     x.value = newX;
@@ -139,14 +144,18 @@ const clampPosition = () => {
     const boxHeight = modalDialogRef.value.offsetHeight;
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
+    const minX = -(boxWidth - visibleEdge);
+    const maxX = windowWidth - visibleEdge;
+    const minY = 0;
+    const maxY = windowHeight - visibleEdge;
 
     let newX = x.value;
     let newY = y.value;
 
-    if (newX < 0) newX = 0;
-    if (newX > windowWidth - boxWidth) newX = windowWidth - boxWidth;
-    if (newY < 0) newY = 0;
-    if (newY > windowHeight - boxHeight) newY = windowHeight - boxHeight;
+    if (newX < minX) newX = minX;
+    if (newX > maxX) newX = maxX;
+    if (newY < minY) newY = minY;
+    if (newY > maxY) newY = maxY;
     
     x.value = newX;
     y.value = newY;

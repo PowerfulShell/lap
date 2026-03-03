@@ -5,7 +5,7 @@
     <slot name="trigger" :toggle="toggleDropdown">
       <!-- Default trigger button when no slot provided -->
       <TButton
-        :icon="iconMenu"
+        :icon="rawIconMenu"
         :buttonSize="smallIcon ? 'small' : 'medium'"
         :disabled="disabled"
         @click="toggleDropdown" 
@@ -101,7 +101,7 @@
 </template>
   
 <script setup>
-import { ref, shallowRef, onMounted, onBeforeUnmount, nextTick, useSlots, watch } from 'vue';
+import { ref, shallowRef, onMounted, onBeforeUnmount, nextTick, useSlots, watch, computed, markRaw } from 'vue';
 
 import TButton from '@/components/TButton.vue';
 import { IconRight } from '@/common/icons';
@@ -128,6 +128,8 @@ const props = defineProps({
     default: false,    
   }
 });
+
+const rawIconMenu = computed(() => (props.iconMenu ? markRaw(props.iconMenu) : null));
 
 // Resolved menu items (computed on demand)
 // Use shallowRef to avoid making icon components reactive

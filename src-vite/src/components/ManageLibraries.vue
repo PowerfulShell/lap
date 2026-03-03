@@ -6,7 +6,7 @@
     @cancel="clickClose"
   >
     <!-- Library list -->
-    <div class="flex flex-col flex-1 min-h-0 border border-base-content/10 rounded-box overflow-hidden relative">
+    <div class="flex flex-col flex-1 min-h-0 border border-base-content/10 bg-base-300/30 shadow-sm rounded-box overflow-hidden relative">
       <!-- Header -->
       <div class="flex items-center justify-between px-4 pt-2 text-sm text-base-content/30 border-base-content/10 mr-9">
         <div>{{ $t('msgbox.manage_libraries.name') }}</div>
@@ -111,7 +111,7 @@
     </div>
 
     <!-- button area -->
-    <div class="flex justify-between items-start shrink-0 pt-2 min-h-[64px]">
+    <div class="flex justify-between items-center shrink-0 pt-2 min-h-[64px]">
       <!-- Add New Library -->
       <div class="flex flex-col items-start justify-center p-2 w-2/3 min-h-[48px] rounded-box border border-transparent transition-colors" :class="showAddInput ? 'border-base-content/10 bg-base-100/20' : ''">
         <button

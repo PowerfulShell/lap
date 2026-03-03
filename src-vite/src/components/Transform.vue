@@ -1,8 +1,8 @@
 <template>
 
   <ModalDialog :title="`${$t('msgbox.image_editor.transform')} - ${shortenFilename(props.fileInfo.name, 32)}`" :width="1040" @cancel="clickCancel">
-    <div class="h-[560px] flex gap-5 select-none">
-      <div ref="containerRef" class="relative flex-1 min-w-0 h-full rounded-box overflow-hidden border border-base-content/6 bg-base-200/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] cursor-default">
+    <div class="h-[560px] flex gap-4 select-none">
+      <div ref="containerRef" class="relative flex-1 min-w-0 h-full rounded-box overflow-hidden border border-base-content/5 bg-base-300/30 shadow-sm cursor-default">
         <transition name="fade">
           <div v-if="isProcessing" class="absolute inset-0 z-50 flex items-center justify-center bg-base-100/55 backdrop-blur-sm">
             <span class="loading loading-dots text-primary"></span>
@@ -51,40 +51,10 @@
       </div>
 
       <div class="w-72 flex flex-col gap-3 overflow-y-auto">
-        <section class="rounded-box border border-base-content/6 bg-base-200/55 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
-          <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">{{ $t('msgbox.image_editor.transform') }}</div>
 
-          <div class="mt-3 grid grid-cols-5 gap-2">
-            <TButton
-              :icon="IconCrop"
-              :selected="cropStatus === 1 || cropApplied"
-              :tooltip="$t('msgbox.image_editor.crop')"
-              @click="toggleCropMode"
-            />
-            <TButton
-              :icon="IconRotateLeft"
-              :disabled="cropStatus === 1"
-              :tooltip="$t('msgbox.image_editor.rotate_left')"
-              @click="clickRotate(-90)"
-            />
-            <TButton
-              :icon="IconRotateRight"
-              :disabled="cropStatus === 1"
-              :tooltip="$t('msgbox.image_editor.rotate_right')"
-              @click="clickRotate(90)"
-            />
-            <TButton
-              :icon="IconFlipHorizontal"
-              :disabled="cropStatus === 1"
-              :tooltip="$t('msgbox.image_editor.flip_horizontal')"
-              @click="clickFlipX"
-            />
-            <TButton
-              :icon="IconFlipVertical"
-              :disabled="cropStatus === 1"
-              :tooltip="$t('msgbox.image_editor.flip_vertical')"
-              @click="clickFlipY"
-            />
+        <section class="rounded-box p-3 space-y-3 bg-base-300/30 border border-base-content/5 shadow-sm">
+          <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">
+            {{ $t('file_info.dimension') }}
           </div>
 
           <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -99,48 +69,104 @@
           </div>
         </section>
 
-        <section class="rounded-box border border-base-content/6 bg-base-200/55 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
+        <section class="rounded-box p-3 space-y-3 bg-base-300/30 border border-base-content/5 shadow-sm">
+          <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">{{ $t('msgbox.image_editor.transform') }}</div>
+
+          <div class="flex gap-3">
+            <TButton
+              :icon="IconRotateLeft"
+              :disabled="cropStatus === 1 || cropApplied"
+              :tooltip="$t('msgbox.image_editor.rotate_left')"
+              @click="clickRotate(-90)"
+            />
+            <TButton
+              :icon="IconRotateRight"
+              :disabled="cropStatus === 1 || cropApplied"
+              :tooltip="$t('msgbox.image_editor.rotate_right')"
+              @click="clickRotate(90)"
+            />
+            <TButton
+              :icon="IconFlipHorizontal"
+              :disabled="cropStatus === 1 || cropApplied"
+              :tooltip="$t('msgbox.image_editor.flip_horizontal')"
+              @click="clickFlipX"
+            />
+            <TButton
+              :icon="IconFlipVertical"
+              :disabled="cropStatus === 1 || cropApplied"
+              :tooltip="$t('msgbox.image_editor.flip_vertical')"
+              @click="clickFlipY"
+            />
+            <TButton
+              :icon="IconRestore"
+              :disabled="cropStatus === 1 || !hasTransformChanges || cropApplied"
+              :tooltip="$t('msgbox.image_editor.restore')"
+              @click="clickRestoreAll"
+            />
+          </div>
+        </section>
+
+        <section class="rounded-box p-3 space-y-3 bg-base-300/30 border border-base-content/5 shadow-sm">
           <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">{{ $t('msgbox.image_editor.crop') }}</div>
 
-          <div v-if="cropStatus === 0" class="mt-3 rounded-box border border-dashed border-base-content/10 px-3 py-4 text-xs leading-5 text-base-content/45">
-            {{ cropApplied ? $t('msgbox.image_editor.crop_applied_hint') : $t('msgbox.image_editor.crop_hint') }}
+          <div v-if="cropStatus === 0" class="flex items-center gap-2">
+            <TButton
+              :icon="cropApplied ? IconRestore : IconCrop"
+              :selected="cropApplied"
+              :tooltip="cropApplied ? $t('msgbox.image_editor.restore') : $t('msgbox.image_editor.crop')"
+              @click="toggleCropMode"
+            />
+            <div class="text-xs leading-5 text-base-content/45">
+              {{ cropApplied ? $t('msgbox.image_editor.crop_applied_hint') : $t('msgbox.image_editor.crop_hint') }}
+            </div>
           </div>
 
-          <div v-else class="mt-3 space-y-3">
-            <div class="flex items-center gap-2">
-              <button class="btn btn-sm btn-ghost px-2" @click="clickCancelCrop">
-                <IconClose class="w-4 h-4" />
-              </button>
-              <button
-                class="btn btn-sm btn-ghost px-2"
-                :disabled="cropBoxFixed"
-                @click="togglePortraitAndLandscape"
-              >
-                <IconCropLandscape class="w-4 h-4" :style="{ transform: `rotate(${isPortrait ? 90 : 0}deg)` }" />
-              </button>
+          <div v-else class="space-y-3">
+            <div class="flex items-center gap-1">
+              <TButton
+                buttonSize="small"
+                :icon="IconClose"
+                :tooltip="$t('msgbox.image_editor.cancel_crop')"
+                @click="clickCancelCrop"
+              />
+              
               <select v-model="config.imageEditor.cropShape" class="select select-bordered select-sm flex-1 min-w-0" :disabled="cropBoxFixed" @change="onChangeCropShape">
                 <option v-for="option in cropShapeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
+
+              <TButton
+                buttonSize="small"
+                :icon="IconCropLandscape"
+                :disabled="cropBoxFixed"
+                :tooltip="isPortrait ? $t('msgbox.image_editor.crop_shape_portrait') : $t('msgbox.image_editor.crop_shape_landscape')"
+                :iconStyle="{ transform: `rotate(${isPortrait ? 90 : 0}deg)` }"
+                @click="togglePortraitAndLandscape"
+              />
+              
+              <TButton
+                buttonSize="small"
+                :icon="cropBoxFixed ? IconZoomOut : IconZoomIn"
+                :tooltip="cropBoxFixed ? $t('msgbox.image_editor.zoom') : $t('msgbox.image_editor.zoom')"
+                @click="toggleCropBoxFixed"
+              />
+
+              <TButton
+                buttonSize="small"
+                :icon="IconOk"
+                :tooltip="$t('msgbox.image_editor.confirm_crop')"
+                @click="clickDoCrop"
+              />
             </div>
 
-            <div class="grid grid-cols-2 gap-2">
-              <button class="btn btn-sm justify-start" :class="cropBoxFixed ? 'btn-primary' : 'btn-ghost'" @click="toggleCropBoxFixed">
-                <component :is="cropBoxFixed ? IconZoomOut : IconZoomIn" class="w-4 h-4" />
-                {{ cropBoxFixed ? $t('msgbox.image_editor.zoom_out') : $t('msgbox.image_editor.zoom_in') }}
-              </button>
-              <button class="btn btn-sm btn-primary justify-start" @click="clickDoCrop">
-                <IconOk class="w-4 h-4" />
-                {{ $t('msgbox.image_editor.confirm_crop') }}
-              </button>
-            </div>
+
 
           </div>
         </section>
 
-        <section class="rounded-box border border-base-content/6 bg-base-200/55 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
+        <section class="rounded-box p-3 space-y-3 bg-base-300/30 border border-base-content/5 shadow-sm">
           <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">{{ $t('msgbox.image_editor.save_file') }}</div>
 
-          <div class="mt-3 space-y-3">
+          <div class="space-y-3">
             <div class="form-control w-full">
               <select v-model="config.imageEditor.saveAs" class="select select-bordered select-sm w-full" :disabled="cropStatus===1">
                 <option v-for="option in fileSaveAsOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
@@ -171,11 +197,18 @@
       </div>
     </div>
 
-    <div class="mt-2 flex justify-end gap-3">
-      <button class="btn btn-ghost" @click="clickCancel">{{ $t('msgbox.image_editor.cancel') }}</button>
+    <div class="mt-4 flex justify-end space-x-4">
       <button
-        class="btn btn-primary"
-        :disabled="cropStatus===1 || isProcessing"
+        class="px-4 py-1 rounded-box hover:bg-base-100 hover:text-base-content cursor-pointer"
+        @click="clickCancel"
+      >{{ $t('msgbox.image_editor.cancel') }}</button>
+      <button
+        :class="[
+          'px-4 py-1 rounded-box',
+          cropStatus === 1 || isProcessing
+            ? 'text-base-content/30 cursor-default'
+            : 'hover:bg-primary hover:text-base-100 cursor-pointer'
+        ]"
         @click="clickSave"
       >{{ config.imageEditor.saveAs === 1 ? $t('msgbox.image_editor.save_as_new') : $t('msgbox.image_editor.overwrite') }}</button>
     </div>
@@ -216,7 +249,7 @@ import {
   IconFlipHorizontal,
   IconClose,
   IconOk,
-  IconSave,
+  IconRestore,
 } from '@/common/icons';
 
 const props = defineProps({
@@ -298,6 +331,12 @@ const outputDimensions = computed(() => {
   const height = rotate.value % 180 !== 0 ? imageWidth.value : imageHeight.value;
   return `${width} × ${height}`;
 });
+
+const hasTransformChanges = computed(() =>
+  rotate.value % 360 !== 0 ||
+  isFlippedX.value ||
+  isFlippedY.value
+);
 
 const cropShapeOptions = computed(() => {
   if (isPortrait.value) {
@@ -438,6 +477,16 @@ const clearCrop = () => {
   cropBoxFixed.value = false;
   crop.value = { left: 0, top: 0, width: 0, height: 0 };
   cropBox.value = { left: 0, top: 0, width: 0, height: 0 };
+  fitImageToContainer();
+};
+
+const clickRestoreAll = () => {
+  if (cropStatus.value === 1 || cropApplied.value) return;
+
+  rotate.value = 0;
+  isFlippedX.value = false;
+  isFlippedY.value = false;
+  isPortrait.value = imageHeight.value > imageWidth.value;
   fitImageToContainer();
 };
 

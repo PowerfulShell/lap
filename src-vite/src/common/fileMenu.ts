@@ -1,4 +1,4 @@
-import { computed, Ref } from 'vue';
+import { computed, markRaw, Ref } from 'vue';
 import {
   IconMonitor,
   IconHeart,
@@ -35,27 +35,27 @@ export const useFileMenuItems = (
     return [
       {
         label: localeMsg.value.menu.file.view_in_new_window,
-        icon: IconMonitor,
+        icon: markRaw(IconMonitor),
         shortcut: isMac ? '⌘⏎' : 'Ctrl+Enter',
         action: createAction('open')
       },
       {
         label: localeMsg.value.menu.file.find_similar_images,
-        icon: IconPhotoSearch,
+        icon: markRaw(IconPhotoSearch),
         shortcut: isMac ? '⌘S' : 'Ctrl+S',
         disabled: f.file_type !== 1 && f.file_type !== 3,
         action: createAction('search-similar')
       },
       {
         label: localeMsg.value.menu.file.find_person_images,
-        icon: IconPersonSearch,
+        icon: markRaw(IconPersonSearch),
         disabled: f.file_type !== 1 && f.file_type !== 3,
         action: createAction('find-person')
       },
       {
         label: localeMsg.value.menu.file.find_album_folder,
         disabled: showFolderFiles.value,
-        icon: IconFolderSearch,
+        icon: markRaw(IconFolderSearch),
         action: createAction('album-folder')
       },
       {
@@ -68,37 +68,37 @@ export const useFileMenuItems = (
       },
       {
         label: localeMsg.value.menu.file.transform,
-        icon: IconCrop,
+        icon: markRaw(IconCrop),
         shortcut: isMac ? '⌘E' : 'Ctrl+E',
         disabled: f.file_type !== 1 && f.file_type !== 3,
         action: createAction('edit')
       },
       {
         label: localeMsg.value.menu.file.copy,
-        icon: IconCopy,
+        icon: markRaw(IconCopy),
         shortcut: isMac ? '⌘C' : 'Ctrl+C',
         disabled: f.file_type !== 1 && f.file_type !== 3,
         action: createAction('copy')
       },
       {
         label: localeMsg.value.menu.file.rename,
-        icon: IconRename,
+        icon: markRaw(IconRename),
         shortcut: isMac ? '⌘R' : 'Ctrl+R',
         action: createAction('rename')
       },
       {
         label: localeMsg.value.menu.file.move_to,
-        icon: IconMoveTo,
+        icon: markRaw(IconMoveTo),
         action: createAction('move-to')
       },
       {
         label: localeMsg.value.menu.file.copy_to,
-        icon: IconFiles,
+        icon: markRaw(IconFiles),
         action: createAction('copy-to')
       },
       {
         label: isMac ? localeMsg.value.menu.file.move_to_trash : localeMsg.value.menu.file.delete,
-        icon: IconTrash,
+        icon: markRaw(IconTrash),
         shortcut: isMac ? '⌘⌫' : 'Del',
         action: createAction('trash')
       },
@@ -109,47 +109,47 @@ export const useFileMenuItems = (
       { label: "-", action: null },
       {
         label: f.is_favorite ? localeMsg.value.menu.meta.unfavorite : localeMsg.value.menu.meta.favorite,
-        icon: IconHeart,
+        icon: markRaw(IconHeart),
         shortcut: isMac ? '⌘F' : 'Ctrl+F',
         action: createAction('favorite')
       },
       {
         label: localeMsg.value.favorite.ratings,
-        icon: IconStar,
+        icon: markRaw(IconStar),
         children: [
           {
             label: localeMsg.value.favorite.clear_rating,
-            icon: IconStar,
+            icon: markRaw(IconStar),
             action: createAction('rating-0')
           },
           { label: '-', action: null },
           {
             label: localeMsg.value.favorite.five_stars,
-            icon: Number(f.rating || 0) === 5 ? IconStarFilled : IconStar,
+            icon: markRaw(Number(f.rating || 0) === 5 ? IconStarFilled : IconStar),
             shortcut: isMac ? '⌘5' : 'Ctrl+5',
             action: createAction('rating-5')
           },
           {
             label: localeMsg.value.favorite.four_stars,
-            icon: Number(f.rating || 0) === 4 ? IconStarFilled : IconStar,
+            icon: markRaw(Number(f.rating || 0) === 4 ? IconStarFilled : IconStar),
             shortcut: isMac ? '⌘4' : 'Ctrl+4',
             action: createAction('rating-4')
           },
           {
             label: localeMsg.value.favorite.three_stars,
-            icon: Number(f.rating || 0) === 3 ? IconStarFilled : IconStar,
+            icon: markRaw(Number(f.rating || 0) === 3 ? IconStarFilled : IconStar),
             shortcut: isMac ? '⌘3' : 'Ctrl+3',
             action: createAction('rating-3')
           },
           {
             label: localeMsg.value.favorite.two_stars,
-            icon: Number(f.rating || 0) === 2 ? IconStarFilled : IconStar,
+            icon: markRaw(Number(f.rating || 0) === 2 ? IconStarFilled : IconStar),
             shortcut: isMac ? '⌘2' : 'Ctrl+2',
             action: createAction('rating-2')
           },
           {
             label: localeMsg.value.favorite.one_star,
-            icon: Number(f.rating || 0) === 1 ? IconStarFilled : IconStar,
+            icon: markRaw(Number(f.rating || 0) === 1 ? IconStarFilled : IconStar),
             shortcut: isMac ? '⌘1' : 'Ctrl+1',
             action: createAction('rating-1')
           },
@@ -157,18 +157,18 @@ export const useFileMenuItems = (
       },
       {
         label: localeMsg.value.menu.meta.tag,
-        icon: IconTag,
+        icon: markRaw(IconTag),
         shortcut: isMac ? '⌘T' : 'Ctrl+T',
         action: createAction('tag')
       },
       {
         label: localeMsg.value.menu.meta.comment,
-        icon: IconComment,
+        icon: markRaw(IconComment),
         action: createAction('comment')
       },
       {
         label: localeMsg.value.menu.meta.rotate,
-        icon: IconRotate,
+        icon: markRaw(IconRotate),
         // shortcut: isMac ? '⌘R' : 'Ctrl+R',
         action: createAction('rotate')
       },

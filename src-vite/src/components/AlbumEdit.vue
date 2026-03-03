@@ -1,79 +1,76 @@
 <template>
   <ModalDialog :title="isNewAlbum ? $t('album.edit.title_add') : $t('album.edit.title')" @cancel="clickCancel">
-    <!-- two column grid layout -->
-    <div class="w-full text-sm text-nowrap grid grid-cols-[auto_1fr_auto] gap-x-4 gap-y-1 items-center">
-      <!-- Folder -->
-      <div class="h-8 flex items-center col-start-1">{{ $t('album.edit.folder') }}</div>
-      <div class="h-12 flex items-center justify-between gap-x-2 col-start-2">
-        <input v-if="selectedFolder !== ''"
-          type="text"
-          readonly
-          :value="selectedFolder"
-          class="p-1 w-full border-none focus:border-none focus:ring-0 focus:outline-none"
-        />
-        <button v-if="selectedFolder === ''"
-          class="btn btn-primary rounded-box"
-          @click="clickSelectFolder"
-        >
-          <IconNewFolder class="w-4 h-4" />
-          {{ $t('album.edit.select_folder') }}
-        </button>
-        <TButton v-if="isNewAlbum && selectedFolder !== ''"
-          :icon="IconNewFolder"
-          :selected="true"
-          @click="clickSelectFolder"
-        />
-      </div>
+    <section class="rounded-box p-3 bg-base-300/30 border border-base-content/5 shadow-sm">
+      <!-- two column grid layout -->
+      <div class="w-full grid grid-cols-[80px_1fr] gap-x-4 gap-y-2 items-center text-xs">
+        <!-- Folder -->
+        <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.folder') }}</div>
+        <div class="h-8 flex items-center justify-between gap-x-2">
+          <input v-if="selectedFolder !== ''"
+            type="text"
+            readonly
+            :value="selectedFolder"
+            class="w-full bg-transparent border-none p-0 text-xs font-semibold text-base-content/65 focus:border-none focus:ring-0 focus:outline-none"
+          />
+          <button v-if="selectedFolder === ''"
+            class="btn btn-primary btn-sm rounded-box"
+            @click="clickSelectFolder"
+          >
+            <IconNewFolder class="w-4 h-4" />
+            {{ $t('album.edit.select_folder') }}
+          </button>
+          <TButton v-if="isNewAlbum && selectedFolder !== ''"
+            :icon="IconNewFolder"
+            :selected="true"
+            @click="clickSelectFolder"
+          />
+        </div>
 
-      <!-- Cover Image -->
-      <div v-if="coverPreview" class="col-start-3 row-span-2">
-        <img :src="coverPreview" class="w-20 h-20 object-cover rounded-box shadow-md border border-base-content/10" />
-      </div>
+        <!-- Name -->
+        <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.name') }}</div>
+        <div>
+          <input
+            ref="inputNameRef"
+            v-model="inputNameValue"
+            type="text"
+            maxlength="255"
+            :disabled="selectedFolder === ''"
+            class="w-full input input-sm text-xs font-semibold"
+          />
+        </div>
 
-      <!-- Name -->
-      <div class="flex items-center col-start-1">{{ $t('album.edit.name') }}</div>
-      <div class="col-start-2">
-        <input
-          ref="inputNameRef"
-          v-model="inputNameValue"
-          type="text"
-          maxlength="255"
-          :disabled="selectedFolder === ''"
-          class="w-full input"
-        />
-      </div>
+        <!-- Description -->
+        <div class="h-8 flex items-start pt-2 text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.description') }}</div>
+        <div>
+          <textarea
+            v-model="inputDescriptionValue"
+            rows="2"
+            maxlength="1024"
+            :placeholder="$t('album.edit.description_placeholder')"
+            :disabled="selectedFolder === ''"
+            class="w-full textarea textarea-sm min-h-[56px] max-h-[200px] text-xs font-semibold"
+          ></textarea>
+        </div>
 
-      <!-- Description -->
-      <div class="flex items-start pt-2 col-start-1">{{ $t('album.edit.description') }}</div>
-      <div class="col-start-2 col-span-2">
-        <textarea
-          v-model="inputDescriptionValue"
-          rows="2"
-          maxlength="1024"
-          :placeholder="$t('album.edit.description_placeholder')"
-          :disabled="selectedFolder === ''"
-          class="my-2 w-full textarea min-h-[50px] max-h-[200px]"
-        ></textarea>
+        <template v-if="selectedFolder !== ''">
+          <!-- Images -->
+          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.images') }}</div>
+          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ totalImageCount >= 0 ? $t('album.edit.files_count', {count: totalImageCount.toLocaleString(), size: formatFileSize(totalImageSize) }) : $t('album.edit.files_counting') }}</div>
+          <!-- Videos -->
+          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.videos') }}</div>
+          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ totalVideoCount >= 0 ? $t('album.edit.files_count', {count: totalVideoCount.toLocaleString(), size: formatFileSize(totalVideoSize) }) : $t('album.info.files_counting') }}</div>
+        </template>
+        
+        <template v-if="!isNewAlbum">
+          <!-- Created At -->
+          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.created_at') }}</div>
+          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ createdAt }}</div>
+          <!-- Modified At -->
+          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.modified_at') }}</div>
+          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ modifiedAt }}</div>
+        </template>
       </div>
-
-      <template v-if="selectedFolder !== ''">
-        <!-- Images -->
-        <div class="h-8 flex items-center col-start-1">{{ $t('album.edit.images') }}</div>
-        <div class="h-8 flex items-center col-start-2 col-span-2">{{ totalImageCount >= 0 ? $t('album.edit.files_count', {count: totalImageCount.toLocaleString(), size: formatFileSize(totalImageSize) }) : $t('album.edit.files_counting') }}</div>
-        <!-- Videos -->
-        <div class="h-8 flex items-center col-start-1">{{ $t('album.edit.videos') }}</div>
-        <div class="h-8 flex items-center col-start-2 col-span-2">{{ totalVideoCount >= 0 ? $t('album.edit.files_count', {count: totalVideoCount.toLocaleString(), size: formatFileSize(totalVideoSize) }) : $t('album.info.files_counting') }}</div>
-      </template>
-      
-      <template v-if="!isNewAlbum">
-        <!-- Created At -->
-        <div class="h-8 flex items-center col-start-1">{{ $t('album.edit.created_at') }}</div>
-        <div class="h-8 flex items-center col-start-2 col-span-2">{{ createdAt }}</div>
-        <!-- Modified At -->
-        <div class="h-8 flex items-center col-start-1">{{ $t('album.edit.modified_at') }}</div>
-        <div class="h-8 flex items-center col-start-2 col-span-2">{{ modifiedAt }}</div>
-      </template>
-    </div>
+    </section>
 
     <!-- cancel and OK buttons -->
     <div class="mt-4 flex justify-end space-x-4">
@@ -101,10 +98,9 @@
 
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { countFolder, getAllAlbums, getFileThumb, getFileInfo } from '@/common/api';
+import { countFolder, getAllAlbums } from '@/common/api';
 import { formatFileSize, openFolderDialog, getFolderName } from '@/common/utils';
 import { useUIStore } from '@/stores/uiStore';
-import { config } from '@/common/config';
 
 import ModalDialog from '@/components/ModalDialog.vue';
 import TButton from '@/components/TButton.vue';
@@ -168,9 +164,6 @@ const totalImageSize = ref(-1);
 const totalVideoCount = ref(0);
 const totalVideoSize = ref(0);
 
-// cover preview
-const coverPreview = ref('');
-
 // image recognition
 const isIndexing = ref(false);
 const indexedImageCount = ref(0);
@@ -203,16 +196,6 @@ onMounted(async () => {
   }
   else {
     selectedFolder.value = props.albumPath;
-
-    if (props.albumCoverFileId) {
-      const file = await getFileInfo(props.albumCoverFileId);
-      if (file) {
-        const thumb = await getFileThumb(file.id, file.file_path, file.file_type, file.e_orientation || 0, config.settings.thumbnailSize, false);
-        if (thumb && thumb.error_code === 0) {
-          coverPreview.value = `data:image/jpeg;base64,${thumb.thumb_data_base64}`;
-        }
-      }
-    }
 
     setTimeout(() => {
       inputNameRef.value?.focus();

@@ -1,63 +1,62 @@
 <template>
   <ModalDialog :title="$t('tag.edit_tag')" :width="600" @cancel="clickCancel">
-    <!-- Search and Add New Tag -->
-    <div class="pb-4 flex items-center space-x-2">
-      <div 
-        :class="[
-          'grow h-8 flex items-center rounded-box transition-colors bg-base-100',
-          isSearchFocused ? 'border-2 border-primary' : 'border border-neutral-content/20 hover:border-neutral-content/50'
-        ]"
-      >
-        <IconSearch class="ml-2 w-4 h-4 text-base-content/50" />
+    <section class="rounded-box p-3 space-y-3 bg-base-300/30 border border-base-content/5 shadow-sm">
+      <div class="flex items-center gap-2">
+        <div 
+          :class="[
+            'grow h-8 flex items-center rounded-box transition-colors bg-base-100',
+            isSearchFocused ? 'border-2 border-primary' : 'border border-neutral-content/20 hover:border-neutral-content/50'
+          ]"
+        >
+          <IconSearch class="ml-2 w-4 h-4 text-base-content/50" />
+          <input
+            ref="tagSearchInputRef"
+            type="text"
+            v-model="tagSearch"
+            :placeholder="$t('tag.search_tags')"
+            class="w-full bg-transparent border-none focus:ring-0 px-2 text-sm placeholder-base-content/30 focus:outline-none"
+            @focus="isSearchFocused = true"
+            @blur="isSearchFocused = false"
+          />
+        </div>
         <input
-          ref="tagSearchInputRef"
+          ref="newTagNameInputRef"
           type="text"
-          v-model="tagSearch"
-          :placeholder="$t('tag.search_tags')"
-          class="w-full bg-transparent border-none focus:ring-0 px-2 text-sm placeholder-base-content/30 focus:outline-none"
-          @focus="isSearchFocused = true"
-          @blur="isSearchFocused = false"
+          v-model="newTagName"
+          :placeholder="$t('tag.enter_new_tag_name')"
+          class="input input-sm w-1/2"
+          @keydown.enter="addNewTag"
+        />
+        <TButton 
+          :icon="IconAdd"
+          :tooltip="$t('tag.add_tag')"
+          @click="addNewTag"
         />
       </div>
 
-      <input
-        ref="newTagNameInputRef"
-        type="text"
-        v-model="newTagName"
-        :placeholder="$t('tag.enter_new_tag_name')"
-        class="input w-1/2"
-        @keydown.enter="addNewTag"
-      />
-      <TButton 
-        :icon="IconAdd"
-        :tooltip="$t('tag.add_tag')"
-        @click="addNewTag"
-      />
-    </div>
-
-    <!-- Tag List -->
-    <div class="max-h-[180px] overflow-y-auto border border-base-content/5 rounded-box p-2">
-      <div v-if="filteredTags.length > 0" class="flex flex-wrap gap-2">
-        <div
-          v-for="tag in filteredTags"
-          :key="tag.id"
-          :class="[
-            'badge badge-lg overflow-hidden whitespace-pre text-ellipsis cursor-pointer transition-colors duration-200',
-            {
-              'badge-primary': selectedTags.has(tag.id),
-              'badge-outline border-base-content/30 bg-base-content/30': intermediateTags.has(tag.id) && !selectedTags.has(tag.id),
-              'badge-outline text-base-content/30 hover:text-base-content hover:bg-base-100': !selectedTags.has(tag.id) && !intermediateTags.has(tag.id),
-            }
-          ]"
-          @click="toggleTag(tag.id)"
-        >
-          {{ tag.name }}
+      <div class="max-h-[180px] overflow-y-auto rounded-box p-2 bg-base-100/40 border border-base-content/5">
+        <div v-if="filteredTags.length > 0" class="flex flex-wrap gap-2">
+          <div
+            v-for="tag in filteredTags"
+            :key="tag.id"
+            :class="[
+              'badge badge-lg overflow-hidden whitespace-pre text-ellipsis cursor-pointer transition-colors duration-200',
+              {
+                'badge-primary': selectedTags.has(tag.id),
+                'badge-outline border-base-content/30 bg-base-content/30': intermediateTags.has(tag.id) && !selectedTags.has(tag.id),
+                'badge-outline text-base-content/30 hover:text-base-content hover:bg-base-100': !selectedTags.has(tag.id) && !intermediateTags.has(tag.id),
+              }
+            ]"
+            @click="toggleTag(tag.id)"
+          >
+            <span>{{ tag.name }}</span>
+          </div>
+        </div>
+        <div v-else class="py-10 text-center text-base-content/35">
+          {{ $t('tag.not_found') }}
         </div>
       </div>
-      <div v-else class="text-center text-gray-500">
-        {{ $t('tag.not_found') }}
-      </div>
-    </div>
+    </section>
 
     <!-- cancel and OK buttons -->
     <div class="mt-4 flex justify-end space-x-4">
