@@ -39,6 +39,13 @@ pub struct DedupState {
     pub status: Arc<Mutex<DedupScanStatus>>,
 }
 
+#[derive(Clone)]
+struct KeepCandidate {
+    id: i64,
+    taken_date: i64,
+    modified_at: i64,
+}
+
 // ----------------------------------------------------------------------------
 // Core Logic
 // ----------------------------------------------------------------------------
@@ -47,7 +54,6 @@ pub fn start_scan(
     app_handle: tauri::AppHandle,
     dedup_state: tauri::State<'_, DedupState>,
     query_params: Option<QueryParams>,
-    file_ids: Option<Vec<i64>>,
 ) -> Result<(), String> {
     if dedup_state
         .is_scanning
@@ -77,7 +83,6 @@ pub fn start_scan(
             &status_clone,
             &cancel_flag_clone,
             query_params,
-            file_ids,
         );
 
         let mut final_status = status_clone.lock().unwrap();
@@ -107,14 +112,11 @@ fn scan_and_hash_files(
     status_mutex: &Arc<Mutex<DedupScanStatus>>,
     cancel_flag: &Arc<AtomicBool>,
     query_params: Option<QueryParams>,
-    file_ids: Option<Vec<i64>>,
 ) -> Result<(), String> {
     let mut conn = get_db_conn()?;
-    let has_scope = query_params.is_some() || file_ids.is_some();
+    let has_scope = query_params.is_some();
 
-    let files_to_check = if let Some(ids) = file_ids.as_ref() {
-        get_files_by_ids(ids)?
-    } else if let Some(params) = query_params.as_ref() {
+    let files_to_check = if let Some(params) = query_params.as_ref() {
         get_files_by_query(params)?
     } else {
         // Step 1: Find suspicious sizes (sizes shared by >1 file)
@@ -352,19 +354,6 @@ fn get_files_by_query(params: &QueryParams) -> Result<Vec<AFile>, String> {
     Ok(all_files)
 }
 
-fn get_files_by_ids(file_ids: &[i64]) -> Result<Vec<AFile>, String> {
-    let mut files = Vec::new();
-    for file_id in file_ids {
-        if *file_id <= 0 {
-            continue;
-        }
-        if let Some(file) = AFile::get_file_info(*file_id)? {
-            files.push(file);
-        }
-    }
-    Ok(files)
-}
-
 fn filter_suspicious_files(files: Vec<AFile>) -> Vec<AFile> {
     let mut size_count: HashMap<i64, usize> = HashMap::new();
     for file in &files {
@@ -415,7 +404,10 @@ fn compute_blake3_hash(path: &str) -> Result<String, io::Error> {
     Ok(hasher.finalize().to_hex().to_string())
 }
 
-fn rebuild_duplicate_groups(conn: &mut Connection, scope_file_ids: Option<&[i64]>) -> Result<(), String> {
+fn rebuild_duplicate_groups(
+    conn: &mut Connection,
+    scope_file_ids: Option<&[i64]>,
+) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     // Remove existing items and groups to rebuild clean
@@ -501,13 +493,13 @@ fn rebuild_duplicate_groups(conn: &mut Connection, scope_file_ids: Option<&[i64]
 
         // Let's get the files for this group
         let item_query = if scope_file_ids.is_some() {
-            "SELECT a.id, a.width, a.height, a.taken_date, a.modified_at
+            "SELECT a.id, a.taken_date, a.modified_at
              FROM file_hashes fh
              JOIN afiles a ON fh.file_id = a.id
              JOIN temp_scope_ids ts ON ts.file_id = a.id
              WHERE fh.hash = ?1 AND fh.file_size = ?2"
         } else {
-            "SELECT a.id, a.width, a.height, a.taken_date, a.modified_at
+            "SELECT a.id, a.taken_date, a.modified_at
              FROM file_hashes fh
              JOIN afiles a ON fh.file_id = a.id
              WHERE fh.hash = ?1 AND fh.file_size = ?2"
@@ -515,40 +507,36 @@ fn rebuild_duplicate_groups(conn: &mut Connection, scope_file_ids: Option<&[i64]
 
         let mut f_stmt = tx.prepare(item_query).map_err(|e| e.to_string())?;
 
-        // Score each file. Highest score becomes keep file.
-        // Higher resolution + newer modified + taken date = higher score
-        let mut file_scores = Vec::new();
+        let mut keep_candidates: Vec<KeepCandidate> = Vec::new();
         let iter = f_stmt
             .query_map(params![hash, size], |row| {
                 let id: i64 = row.get(0)?;
-                let w: u32 = row.get(1).unwrap_or(0);
-                let h: u32 = row.get(2).unwrap_or(0);
-                let tk: i64 = row.get(3).unwrap_or(0);
-                let mt: i64 = row.get(4).unwrap_or(0);
-                Ok((id, w, h, tk, mt))
+                let tk: i64 = row.get(1).unwrap_or(0);
+                let mt: i64 = row.get(2).unwrap_or(0);
+                Ok((id, tk, mt))
             })
             .map_err(|e| e.to_string())?;
 
         for r in iter {
-            let (id, w, h, tk, mt) = r.map_err(|e| e.to_string())?;
-            let resolution_score = (w as f64) * (h as f64) * 0.001;
-            let tk_score = if tk > 0 { 100.0 } else { 0.0 };
-            let mt_score = (mt as f64) * 0.000_000_001; // tiny factor to break ties
-
-            let total_score = resolution_score + tk_score + mt_score;
-            file_scores.push((id, total_score));
+            let (id, tk, mt) = r.map_err(|e| e.to_string())?;
+            keep_candidates.push(KeepCandidate {
+                id,
+                taken_date: tk,
+                modified_at: mt,
+            });
         }
 
-        // highest score first
-        file_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        keep_candidates.sort_by(compare_best_quality);
 
-        for (i, (file_id, score)) in file_scores.iter().enumerate() {
+        let total_candidates = keep_candidates.len() as f64;
+        for (i, candidate) in keep_candidates.iter().enumerate() {
             let is_keep = if i == 0 { 1 } else { 0 };
+            let score = total_candidates - i as f64;
 
             tx.execute(
                 "INSERT INTO duplicate_group_items (group_id, file_id, is_keep, is_selected, score)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![target_group_id, file_id, is_keep, 0, score],
+                params![target_group_id, candidate.id, is_keep, 0, score],
             )
             .map_err(|e| e.to_string())?;
         }
@@ -557,6 +545,13 @@ fn rebuild_duplicate_groups(conn: &mut Connection, scope_file_ids: Option<&[i64]
 
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+fn compare_best_quality(a: &KeepCandidate, b: &KeepCandidate) -> std::cmp::Ordering {
+    (b.taken_date > 0)
+        .cmp(&(a.taken_date > 0))
+        .then_with(|| b.modified_at.cmp(&a.modified_at))
+        .then_with(|| a.id.cmp(&b.id))
 }
 
 // ----------------------------------------------------------------------------

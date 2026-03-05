@@ -125,6 +125,7 @@ export const useFileMenuItems = (
       {
         label: localeMsg.value.favorite.ratings,
         icon: markRaw(IconStar),
+        submenuOpenDelay: 200,
         children: [
           {
             label: localeMsg.value.favorite.clear_rating,

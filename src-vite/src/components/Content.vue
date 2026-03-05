@@ -352,7 +352,6 @@
             :selected-file-id="fileList[selectedItemIndex]?.id"
             :dedup-scan-key="dedupScanKey"
             :dedup-query-params="dedupQueryParams"
-            :dedup-scope-file-ids="dedupScopeFileIds"
             @close="config.dupPanel.show = false"
             @select-file="handleDedupSelectFile"
             @preview-file="handleDedupPreviewFile"
@@ -941,28 +940,12 @@ const currentImageSearchParams = ref({
 // Similar Search Mode State
 const tempViewMode = ref<'none' | 'similar' | 'album' | 'person'>('none');
 const dedupQueryParams = computed(() => {
-  if (tempViewMode.value === 'similar') return null;
-  if (config.main.sidebarIndex === 2 && config.search.searchType === 1) return null;
   return { ...currentQueryParams.value };
-});
-
-const dedupScopeFileIds = computed(() => {
-  if (dedupQueryParams.value) return null;
-  const ids = fileList.value
-    .map((file: any) => Number(file?.id))
-    .filter((id: number) => Number.isFinite(id) && id > 0);
-  return ids.length > 0 ? ids : null;
 });
 
 const dedupScanKey = computed(() => {
   if (totalFileCount.value <= 0) return '';
-  if (dedupQueryParams.value) {
-    return `query:${JSON.stringify(dedupQueryParams.value)}|count:${totalFileCount.value}`;
-  }
-  if (dedupScopeFileIds.value && dedupScopeFileIds.value.length > 0) {
-    return `scope:${dedupScopeFileIds.value.join(',')}`;
-  }
-  return '';
+  return `query:${JSON.stringify(dedupQueryParams.value)}|count:${totalFileCount.value}`;
 });
 
 const currentTitleIcon = computed(() => {

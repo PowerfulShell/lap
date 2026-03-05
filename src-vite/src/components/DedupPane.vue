@@ -1,10 +1,10 @@
 <template>
   <div class="w-full h-full rounded-box bg-base-200 flex flex-col overflow-hidden">
     <div class="flex items-center w-full shrink-0 px-2 mb-2">
-      <div class="flex items-center gap-2 text-base-content/70 px-2 mt-2">
-        <span class="uppercase text-sm tracking-wide">{{ $t('info_panel.dedup.title') }}</span>
+      <div class="flex-1 pl-1">
+        <span class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">{{ $t('info_panel.dedup.title') }}</span>
       </div>
-      <div class="ml-auto mt-2 flex items-center gap-1">
+      <div class="mt-2 flex items-center gap-1">
         <TButton
           :icon="IconRefresh"
           :tooltip="$t('toolbar.tooltip.refresh')"
@@ -44,6 +44,9 @@
             <span class="ml-auto text-xs font-semibold text-base-content/65">
               {{ $t('info_panel.dedup.duplicate_files_summary', { count: duplicateFileCount.toLocaleString(), size: formatFileSize(reclaimableBytes) }) }}
             </span>
+          </div>
+          <div class="text-[11px] text-base-content/45">
+            {{ $t('info_panel.dedup.group_limit_hint', { count: DEDUP_GROUP_LIMIT }) }}
           </div>
           <div class="space-y-1 max-h-40 overflow-y-auto overflow-x-hidden pr-1">
             <button
@@ -181,13 +184,14 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { formatFileSize, getFolderPath, isMac } from '@/common/utils';
 import TButton from '@/components/TButton.vue';
-import { IconCheckAll, IconCheckNone, IconClose, IconFiles, IconSimilar, IconSplitOn, IconTrash, IconRefresh } from '@/common/icons';
+import { IconCheckAll, IconCheckNone, IconClose, IconSimilar, IconSplitOn, IconTrash, IconRefresh } from '@/common/icons';
 import { dedupStartScan, dedupGetScanStatus, listenDedupScanProgress, dedupListGroups, dedupSetKeep, getFileThumb } from '@/common/api';
 import { config } from '@/common/config';
 
 const dedupPaneGlobalState = ((globalThis as any).__lapDedupPaneState ||= {
   lastScanKey: '',
 });
+const DEDUP_GROUP_LIMIT = 200;
 const thumbnailPlaceholder = new URL('@/assets/images/image-file.png', import.meta.url).href;
 
 const props = defineProps({
@@ -207,10 +211,6 @@ const props = defineProps({
     type: Object as () => Record<string, any> | null,
     default: null,
   },
-  dedupScopeFileIds: {
-    type: Array as () => number[] | null,
-    default: null,
-  },
 });
 
 const emit = defineEmits<{
@@ -227,7 +227,6 @@ const unlistenDedupProgress = ref<null | (() => void)>(null);
 const queuedScanKey = ref('');
 const rawGroups = ref<any[]>([]);
 const selectedGroupId = ref<number | null>(null);
-
 const duplicateGroups = computed(() =>
   rawGroups.value.map((group: any) => {
     const keepItem = (group.items || []).find((i: any) => i.is_keep === 1) || null;
@@ -370,7 +369,7 @@ async function hydrateGroupThumbnails(groups: any[]) {
 
 async function fetchGroups(preferredGroupId: number | null = null) {
   try {
-    const groups = await dedupListGroups(1, 200, 'size_desc', 'all');
+    const groups = await dedupListGroups(1, DEDUP_GROUP_LIMIT, 'size_desc', 'all');
     const normalized = Array.isArray(groups) ? groups : [];
     await hydrateGroupThumbnails(normalized);
     rawGroups.value = normalized;
@@ -426,7 +425,7 @@ async function triggerBackendDedup(force = false) {
       return;
     }
 
-    await dedupStartScan(props.dedupQueryParams || null, props.dedupScopeFileIds || null);
+    await dedupStartScan(props.dedupQueryParams || null);
     dedupPaneGlobalState.lastScanKey = props.dedupScanKey;
 
     const latest = await dedupGetScanStatus();

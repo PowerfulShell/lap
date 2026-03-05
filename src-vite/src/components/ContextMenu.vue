@@ -39,7 +39,7 @@
                   'w-full px-2 py-1 flex justify-between text-sm whitespace-nowrap',
                   item.disabled ? 'text-base-content/30' : 'hover:bg-base-100/30 hover:text-base-content hover:rounded-box cursor-pointer',
                 ]"
-                @click="handleClick(item)"
+                @click="handleClick(item, $event)"
               >
                 <div class="w-full flex items-center">
                   <div class="w-5">
@@ -148,6 +148,7 @@ const submenuStyle = ref({});
 const activeSubmenuIndex = ref(null);
 const activeSubmenuItem = ref(null);
 let submenuCloseTimeout = null;
+let submenuOpenTimeout = null;
 
 // Add event listener when the component is mounted
 onMounted(() => {
@@ -159,6 +160,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside, { capture: true });
   document.removeEventListener('keydown', handleKeyDown);
   cancelSubmenuClose();
+  cancelSubmenuOpen();
 });
 
 // Watch for dropdown state to attach/detach listeners
@@ -173,6 +175,7 @@ watch(isDropDown, (val) => {
     activeSubmenuIndex.value = null;
     activeSubmenuItem.value = null;
     cancelSubmenuClose();
+    cancelSubmenuOpen();
   }
 });
 
@@ -328,10 +331,20 @@ const positionSubmenu = async (targetEl) => {
 
 const handleItemMouseEnter = (index, item, event) => {
   cancelSubmenuClose();
+  cancelSubmenuOpen();
   activeSubmenuIndex.value = item.children?.length ? index : null;
   if (item.children?.length) {
-    activeSubmenuItem.value = item;
-    void positionSubmenu(event.currentTarget);
+    const openDelay = Number(item.submenuOpenDelay || 0);
+    if (openDelay > 0) {
+      submenuOpenTimeout = window.setTimeout(() => {
+        activeSubmenuItem.value = item;
+        void positionSubmenu(event.currentTarget);
+        submenuOpenTimeout = null;
+      }, openDelay);
+    } else {
+      activeSubmenuItem.value = item;
+      void positionSubmenu(event.currentTarget);
+    }
   } else {
     activeSubmenuItem.value = null;
   }
@@ -345,6 +358,7 @@ const handleItemMouseLeave = (index) => {
 
 const scheduleSubmenuClose = (index) => {
   cancelSubmenuClose();
+  cancelSubmenuOpen();
   submenuCloseTimeout = window.setTimeout(() => {
     if (activeSubmenuIndex.value === index) {
       activeSubmenuIndex.value = null;
@@ -361,8 +375,20 @@ const cancelSubmenuClose = () => {
   }
 };
 
-const handleClick = (item) => {
+const cancelSubmenuOpen = () => {
+  if (submenuOpenTimeout !== null) {
+    window.clearTimeout(submenuOpenTimeout);
+    submenuOpenTimeout = null;
+  }
+};
+
+const handleClick = (item, event) => {
   if (item.children?.length) {
+    cancelSubmenuClose();
+    cancelSubmenuOpen();
+    activeSubmenuItem.value = item;
+    const target = event?.currentTarget?.closest('.relative') || event?.currentTarget;
+    void positionSubmenu(target);
     return;
   }
   if (!item.disabled && item.action && typeof item.action === 'function') {

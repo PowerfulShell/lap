@@ -9,6 +9,22 @@
             </div>
           </transition>
 
+          <div
+            class="absolute top-2 right-2 z-40"
+            @pointerdown.stop="handleComparePointerDown"
+            @pointerup.stop="handleComparePointerUp"
+            @pointerleave.stop="handleComparePointerUp"
+            @pointercancel.stop="handleComparePointerUp"
+          >
+            <TButton
+              buttonSize="small"
+              :icon="IconInformation"
+              :selected="isComparingOriginal"
+              :disabled="!hasAdjustmentChanges"
+              :tooltip="$t('msgbox.image_editor.compare')"
+            />
+          </div>
+
           <img :src="imageSrc" :style="imageStyle" class="w-full h-full object-contain" draggable="false" @load="onImageLoad" />
         </div>
       </div>
@@ -47,10 +63,8 @@
         <section class="rounded-box p-3 space-y-2 border border-base-content/5 shadow-sm bg-base-300/30">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
-              <IconPalette class="w-4 h-4 text-base-content/60" />
               <span class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">{{ $t('msgbox.image_editor.presets.title') }}</span>
             </div>
-            <span class="text-[10px] text-primary/70 font-bold uppercase mr-1">{{ presetOptions.find((o) => o.value === selectedPreset)?.label || selectedPreset }}</span>
             <TButton
               buttonSize="small"
               :icon="IconRestore"
@@ -87,7 +101,12 @@
                   <IconPalette v-else class="w-4 h-4 text-base-content/10" />
                 </div>
               </div>
-              <div class="text-[9px] text-center truncate font-medium text-base-content/50 group-hover:text-base-content transition-colors uppercase tracking-tight">
+              <div
+                :class="[
+                  'text-[9px] text-center truncate font-medium transition-colors uppercase tracking-tight',
+                  selectedPreset === option.value ? 'text-primary' : 'text-base-content/50 group-hover:text-base-content',
+                ]"
+              >
                 {{ option.label }}
               </div>
             </div>
@@ -97,7 +116,6 @@
         <section class="rounded-box p-3 space-y-2 border border-base-content/5 shadow-sm bg-base-300/30">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
-              <IconAdjustments class="w-4 h-4 text-base-content/60" />
               <span class="text-[11px] font-bold uppercase tracking-[0.22em] text-base-content/35">{{ $t('msgbox.image_editor.adjustments') }}</span>
             </div>
             <TButton
@@ -111,7 +129,6 @@
 
           <div class="space-y-4 overflow-hidden">
             <div class="space-y-3">
-              <div class="text-[10px] uppercase tracking-widest font-bold text-base-content/20 mb-2">{{ $t('msgbox.image_editor.light') || 'Light' }}</div>
               <div v-for="adj in lightSliders" :key="adj.key" class="grid grid-cols-[80px_minmax(0,1fr)] gap-x-4 items-center">
                 <div class="font-medium text-base-content/40 tracking-wide text-xs">{{ adj.label }}</div>
                 <div class="flex items-center gap-2 pr-2 min-w-0">
@@ -124,7 +141,6 @@
             <div class="h-px bg-base-content/5 mx-1"></div>
 
             <div class="space-y-3">
-              <div class="text-[10px] uppercase tracking-widest font-bold text-base-content/20 mb-2">{{ $t('msgbox.image_editor.color') || 'Color' }}</div>
               <div v-for="adj in colorSliders" :key="adj.key" class="grid grid-cols-[80px_minmax(0,1fr)] gap-x-4 items-center">
                 <div class="font-medium text-base-content/40 tracking-wide text-xs">{{ adj.label }}</div>
                 <div class="flex items-center gap-2 pr-2 min-w-0">
@@ -214,6 +230,7 @@ import {
   IconRestore,
   IconPalette,
   IconAdjustments,
+  IconInformation,
 } from '@/common/icons';
 
 const props = defineProps({
@@ -232,6 +249,7 @@ const emit = defineEmits(['success', 'failed', 'cancel']);
 const isProcessing = ref(false);
 const imageSrc = ref('');
 const showOverwriteConfirm = ref(false);
+const compareHold = ref(false);
 
 const brightness = ref(0);
 const contrast = ref(0);
@@ -260,18 +278,22 @@ const presets: Record<string, any> = {
   cyberpunk: { brightness: 10, contrast: 20, saturation: 130, hue: -15, blur: 0, filter: '' },
 };
 
+const isComparingOriginal = computed(() => compareHold.value);
+
+const adjustmentFilter = computed(() => `
+  brightness(${100 + brightness.value}%)
+  contrast(${100 + contrast.value}%)
+  blur(${blur.value}px)
+  hue-rotate(${hue.value}deg)
+  saturate(${saturation.value}%)
+  ${selectedFilter.value === 'grayscale' ? 'grayscale(100%)' : ''}
+  ${selectedFilter.value === 'sepia' ? 'sepia(100%)' : ''}
+  ${selectedFilter.value === 'invert' ? 'invert(100%)' : ''}
+`);
+
 const imageStyle = computed((): CSSProperties => ({
   display: 'block',
-  filter: `
-    brightness(${100 + brightness.value}%)
-    contrast(${100 + contrast.value}%)
-    blur(${blur.value}px)
-    hue-rotate(${hue.value}deg)
-    saturate(${saturation.value}%)
-    ${selectedFilter.value === 'grayscale' ? 'grayscale(100%)' : ''}
-    ${selectedFilter.value === 'sepia' ? 'sepia(100%)' : ''}
-    ${selectedFilter.value === 'invert' ? 'invert(100%)' : ''}
-  `,
+  filter: isComparingOriginal.value ? 'none' : adjustmentFilter.value,
 }));
 
 const histogramData = ref<number[]>(new Array(256).fill(0));
@@ -382,19 +404,31 @@ const movePresetSelection = (step: number) => {
 
   const currentIndex = options.findIndex((option) => option.value === selectedPreset.value);
   const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-  const nextIndex = (safeIndex + step + options.length) % options.length;
+  const nextIndex = Math.min(options.length - 1, Math.max(0, safeIndex + step));
+  if (nextIndex === safeIndex) return;
   selectedPreset.value = options[nextIndex].value;
+};
+
+const handleComparePointerDown = () => {
+  if (!hasAdjustmentChanges.value) return;
+  compareHold.value = true;
+};
+
+const handleComparePointerUp = () => {
+  compareHold.value = false;
 };
 
 const scrollSelectedPresetIntoView = () => {
   const strip = presetStripRef.value;
   const el = strip?.querySelector(`[data-preset="${selectedPreset.value}"]`) as HTMLElement | null;
   if (!strip || !el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 };
 
 const getPresetThumbnailStyle = (presetKey: string) => {
-  if (presetKey === 'custom') return imageStyle.value;
+  if (presetKey === 'custom') {
+    return { filter: adjustmentFilter.value };
+  }
   const p = presets[presetKey];
   if (!p) return {};
 
@@ -521,6 +555,11 @@ watch([brightness, contrast, saturation, hue, blur, selectedFilter], () => {
     flipY: false,
     resize: null,
   });
+});
+
+watch(hasAdjustmentChanges, (hasChanges) => {
+  if (hasChanges) return;
+  compareHold.value = false;
 });
 
 const resetAll = () => {

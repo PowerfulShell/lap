@@ -11,6 +11,7 @@
       <div class="sidebar-item-label">
         {{ $t('favorite.files') }}
       </div>
+      <span v-if="favoriteFilesCount" class="sidebar-item-count">{{ favoriteFilesCount.toLocaleString() }}</span>
     </div>
 
     <div class="sidebar-panel-header">
@@ -33,6 +34,7 @@
                 class="w-4 h-4 shrink-0"
               />
             </div>
+            <span v-if="ratingCounts[rating]" class="sidebar-item-count ml-auto">{{ ratingCounts[rating].toLocaleString() }}</span>
           </div>
         </li>
       </ul>
@@ -74,7 +76,9 @@
 </template>
   
 <script setup lang="ts">
+import { onMounted, ref } from 'vue';
 import { libConfig } from '@/common/config';
+import { getQueryCountAndSum } from '@/common/api';
 
 import { IconHeart, IconStarFilled } from '@/common/icons';
 
@@ -91,6 +95,52 @@ const props = defineProps({
     type: String,
     required: true
   }
+});
+
+const favoriteFilesCount = ref(0);
+const ratingCounts = ref<Record<number, number>>({
+  1: 0,
+  2: 0,
+  3: 0,
+  4: 0,
+  5: 0,
+});
+
+const buildFavoriteQueryParams = (rating = 0) => ({
+  searchFileType: 0,
+  sortType: 0,
+  sortOrder: 0,
+  searchFileName: "",
+  searchAllSubfolders: "",
+  searchFolder: "",
+  startDate: 0,
+  endDate: 0,
+  make: "",
+  model: "",
+  locationAdmin1: "",
+  locationName: "",
+  isFavorite: true,
+  rating,
+  tagId: 0,
+  personId: 0,
+});
+
+async function loadCounts() {
+  const total = await getQueryCountAndSum(buildFavoriteQueryParams(0));
+  favoriteFilesCount.value = total ? Number(total[0]) : 0;
+
+  const entries = await Promise.all(
+    [1, 2, 3, 4, 5].map(async (rating) => {
+      const result = await getQueryCountAndSum(buildFavoriteQueryParams(rating));
+      return [rating, result ? Number(result[0]) : 0] as const;
+    }),
+  );
+
+  ratingCounts.value = Object.fromEntries(entries) as Record<number, number>;
+}
+
+onMounted(() => {
+  void loadCounts();
 });
 
 // Hidden for now: favorite folders
@@ -137,7 +187,7 @@ if (libConfig.favorite.folderId !== 0) {
   clickFavoriteFiles();
 }
 
-function clickRating(rating) {
+function clickRating(rating: number) {
   libConfig.favorite.albumId = null;
   libConfig.favorite.folderId = 0;
   libConfig.favorite.folderPath = '';
