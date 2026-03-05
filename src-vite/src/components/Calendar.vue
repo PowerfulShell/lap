@@ -16,8 +16,9 @@
     </div>
 
     <template v-if="Object.keys(calendar_dates).length > 0" >
-      <div class="sidebar-panel-header">
-        <div role="tablist" class="tabs tabs-sm tabs-border flex-1">
+      <div class="sidebar-panel-header gap-2">
+        <span class="sidebar-panel-header-title">{{ localeMsg.sidebar.calendar }}</span>
+        <div role="tablist" class="tabs tabs-xs tabs-border ml-auto">
           <a
             role="tab"
             :class="['tab mx-1', { 'tab-active': config.calendar.isMonthly }]"
@@ -33,7 +34,7 @@
             {{ localeMsg.menu.calendar.daily }}
           </a>
         </div>
-        <ContextMenu class="sidebar-panel-action" :menuItems="calendarMenuItems" :iconMenu="IconMore" :smallIcon="true" />
+        <ContextMenu :menuItems="calendarMenuItems" :iconMenu="IconMore" :smallIcon="true" />
       </div>
       <!-- calendar -->
       <div ref="scrollable"

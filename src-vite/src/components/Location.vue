@@ -3,7 +3,7 @@
   <div class="sidebar-panel">
     <div class="sidebar-panel-header">
       <span class="sidebar-panel-header-title">{{ localeMsg.sidebar.location }}</span>
-      <ContextMenu class="sidebar-panel-action" :menuItems="locationPanelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
+      <ContextMenu :menuItems="locationPanelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
     </div>
 
     <!-- location -->

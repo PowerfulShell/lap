@@ -38,9 +38,14 @@
 
       <!-- custom tags -->
       <div class="sidebar-panel-header">
-        <span class="sidebar-panel-header-title">{{ localeMsg.tag.custom_group }}</span>
+        <span class="sidebar-panel-header-title flex-1">{{ localeMsg.tag.custom_group }}</span>
+        <TButton
+          :icon="IconAdd"
+          :buttonSize="'small'"
+          :tooltip="$t('menu.tag.add')"
+          @click="clickAddTag"
+        />
         <ContextMenu
-          class="sidebar-panel-action"
           :menuItems="panelMenuItems"
           :iconMenu="IconMore"
           :smallIcon="true"
@@ -140,6 +145,7 @@ import { SMART_TAG_CATEGORIES, getSmartTagById } from '@/common/smartTags';
 
 import ContextMenu from '@/components/ContextMenu.vue';
 import MessageBox from '@/components/MessageBox.vue';
+import TButton from '@/components/TButton.vue';
 
 const props = defineProps({
   titlebar: {
@@ -181,12 +187,6 @@ const smartTagItems = computed(() => {
 });
 
 const panelMenuItems = computed(() => [
-  {
-    label: localeMsg.value.menu.tag.add,
-    icon: IconAdd,
-    action: () => clickAddTag(),
-  },
-  { label: '-' },
   {
     label: localeMsg.value.menu.sort.sort_by_name,
     icon: config.leftPanel.sortCount ? null : IconDot,

@@ -310,6 +310,7 @@
       "view_in_new_window": "Ver en nueva ventana...",
       "copy": "Copiar a portapapeles",
       "edit_image": "Editar imagen...",
+      "adjust": "Ajustar...",
       "find_similar_images": "Buscar similares",
       "find_person_images": "Buscar fotos de persona",
       "find_album_folder": "Buscar carpeta de álbum",
@@ -515,6 +516,7 @@
     },
     "image_editor": {
       "title": "Editar imagen",
+      "adjust_title": "Ajustar imagen",
       "tab_edit": "Ajustar",
       "histogram": "Histograma",
       "light": "Luz",
@@ -849,6 +851,7 @@
     },
     "face_recognition": {
       "title": "Reconocimiento facial",
+      "beta_hint": "Beta: función aún en desarrollo",
       "similarity": "Similitud cara",
       "cluster_threshold": "Umbral agrupación",
       "cluster_threshold_hint": "Alto = Estricto, Bajo = Laxo",

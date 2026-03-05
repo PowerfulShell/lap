@@ -12,7 +12,15 @@
           :selected="true"
           @click="clickCloseEditList"
         />
-        <ContextMenu v-else class="sidebar-panel-action" :menuItems="panelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
+        <template v-else>
+          <TButton
+            :icon="IconAdd"
+            :buttonSize="'small'"
+            :tooltip="$t('menu.album.add')"
+            @click="clickNewAlbum"
+          />
+          <ContextMenu :menuItems="panelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
+        </template>
       </div>
       
       <!-- drag to change albums' display order -->
@@ -71,7 +79,7 @@
                   :class="libConfig.index.albumQueue.includes(album.id) ? 'animate-spin' : ''" 
                 />
               </div>
-              <span v-else-if="props.showTotalCount !== false">
+              <span v-if="props.showTotalCount !== false">
                 {{ (album.total ?? 0).toLocaleString() }}
               </span>
             </div>  
@@ -103,7 +111,10 @@
             enter-from-class="max-h-0"
             enter-to-class="max-h-96"
           >
-            <div v-if="album.is_expanded && !isEditList && !(libConfig.index.albumQueue as any).includes(album.id)" class="ml-8 mr-2 my-1 py-1 rounded-box border border-base-content/5 shadow-sm">
+            <div
+              v-if="album.is_expanded && !isEditList && !(libConfig.index.albumQueue as any).includes(album.id)"
+              class="ml-6 mr-2 my-1 p-1 rounded-box bg-base-300/30 border border-base-content/5 shadow-sm"
+            >
               <AlbumFolder 
                 :children="album.children" 
                 :albumId="album.id"
@@ -189,10 +200,12 @@ import {
   IconRight,
 } from '@/common/icons';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   selectionSource: SelectionSource;
   showTotalCount?: boolean;
-}>();
+}>(), {
+  showTotalCount: true,
+});
 
 const emit = defineEmits(['editDataChanged']);
 
@@ -221,12 +234,6 @@ let unlistenIndexFinished: (() => void) | undefined;
 const isMainPane = computed(() => props.selectionSource === 'album');
 
 const panelMenuItems = computed(() => [
-  {
-    label: localeMsg.value.menu.album.add,
-    icon: IconAdd,
-    action: () => clickNewAlbum(),
-  },
-  { label: '-' },
   {
     label: localeMsg.value.menu.album.reorder || 'Reorder',
     icon: IconDragHandle,

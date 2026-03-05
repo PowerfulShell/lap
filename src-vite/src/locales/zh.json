@@ -310,6 +310,7 @@
       "view_in_new_window": "在新窗口中查看...",
       "copy": "复制到剪贴板",
       "edit_image": "编辑图片...",
+      "adjust": "调整...",
       "find_similar_images": "查找相似图片",
       "find_person_images": "查找人物图片",
       "find_album_folder": "查找相册文件夹",
@@ -515,6 +516,7 @@
     },
     "image_editor": {
       "title": "编辑图片",
+      "adjust_title": "调整图片",
       "tab_edit": "调整",
       "histogram": "直方图",
       "light": "光影",
@@ -849,6 +851,7 @@
     },
     "face_recognition": {
       "title": "人脸识别",
+      "beta_hint": "Beta：功能仍在开发中",
       "similarity": "人脸相似度",
       "cluster_threshold": "聚类阈值",
       "cluster_threshold_hint": "较高 = 更严格 (更多人物)，较低 = 更宽松 (可能合并不同的人)",

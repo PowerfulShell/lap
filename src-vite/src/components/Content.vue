@@ -31,7 +31,11 @@
               <li v-for="(seg, idx) in titleSegments" :key="idx" class="min-w-0 max-w-full overflow-hidden">
                 <a
                   v-if="idx < titleSegments.length - 1"
-                  class="block max-w-[16rem] truncate cursor-pointer text-base-content/50 hover:text-primary transition-colors"
+                  :class="[
+                    'block max-w-[16rem] truncate cursor-pointer transition-colors',
+                    tempViewMode === 'album' ? 'text-primary' : 'text-base-content/50 hover:text-primary',
+                  ]"
+                  @mousedown.stop
                   @click.stop="handleBreadcrumbClick(idx)"
                 >{{ seg }}</a>
                 <span
@@ -85,7 +89,7 @@
         <DropDownSelect
           :options="fileTypeOptions"
           :defaultIndex="config.search.fileType"
-          :disabled="config.main.sidebarIndex === 3 || tempViewMode !== 'none' || isIndexing || showQuickView"
+          :disabled="config.main.sidebarIndex === 2 || tempViewMode !== 'none' || isIndexing || showQuickView"
           :selected="config.search.fileType !== 0"
           @select="handleFileTypeSelect"
         />
@@ -96,7 +100,7 @@
           :defaultIndex="config.search.sortType"
           :extendOptions="sortExtendOptions"
           :defaultExtendIndex="config.search.sortOrder"
-          :disabled="config.main.sidebarIndex === 3 || tempViewMode !== 'none' || isIndexing || showQuickView"
+          :disabled="config.main.sidebarIndex === 2 || tempViewMode !== 'none' || isIndexing || showQuickView"
           @select="handleSortTypeSelect"
         />
 
@@ -419,6 +423,14 @@
     @cancel="showEditImage = false"
   />
 
+  <AdjustImage
+    v-if="showAdjustImage"
+    :fileInfo="fileList[selectedItemIndex]"
+    @success="onFileSaved(true)"
+    @failed="onFileSaved(false)"
+    @cancel="showAdjustImage = false"
+  />
+
   <!-- rename -->
   <MessageBox
     v-if="showRenameMsgbox"
@@ -541,6 +553,7 @@ import ToolTip from '@/components/ToolTip.vue';
 import TButton from '@/components/TButton.vue';
 import TaggingDialog from '@/components/TaggingDialog.vue';
 import EditImage from '@/components/EditImage.vue';
+import AdjustImage from '@/components/AdjustImage.vue';
 import FileInfo from '@/components/FileInfo.vue';
 import DedupPane from '@/components/DedupPane.vue';
 import ScrollBar from '@/components/ScrollBar.vue';
@@ -605,6 +618,36 @@ const titleSegments = computed(() => {
 });
 
 function handleBreadcrumbClick(segmentIndex: number) {
+  if (tempViewMode.value === 'album') {
+    const segments = titleSegments.value;
+    if (segmentIndex < 0 || segmentIndex >= segments.length - 1) return;
+
+    const currentPath = currentQueryParams.value.searchFolder || '';
+    if (!currentPath) return;
+
+    const pathParts = currentPath.split(separator);
+    const levelsToGoUp = segments.length - 1 - segmentIndex;
+    const targetPath = pathParts.slice(0, Math.max(0, pathParts.length - levelsToGoUp)).join(separator);
+
+    if (!targetPath || targetPath === currentPath) return;
+
+    // Update breadcrumb title immediately to reflect parent navigation in temp album mode.
+    contentTitle.value = segments.slice(0, segmentIndex + 1).join(' > ');
+
+    const requestId = ++currentContentRequestId;
+    fileList.value = [];
+    totalFileCount.value = 0;
+    totalFileSize.value = 0;
+    scrollPosition.value = 0;
+    selectedItemIndex.value = 0;
+    if (gridViewRef.value) {
+      gridViewRef.value.scrollToPosition(0);
+    }
+
+    getFileList({ searchFolder: targetPath }, requestId);
+    return;
+  }
+
   const sidebarIndex = config.main.sidebarIndex;
 
   // Location: clicking parent segment navigates to admin1 only
@@ -717,6 +760,7 @@ const renamingFileName = ref<{name?: string, ext?: string}>({}); // extract the 
 
 const showMoveTo = ref(false);
 const showEditImage = ref(false);
+const showAdjustImage = ref(false);
 const showCopyTo = ref(false);
 const showTrashMsgbox = ref(false);
 const dedupReclaimBytes = ref(0);
@@ -898,7 +942,7 @@ const currentImageSearchParams = ref({
 const tempViewMode = ref<'none' | 'similar' | 'album' | 'person'>('none');
 const dedupQueryParams = computed(() => {
   if (tempViewMode.value === 'similar') return null;
-  if (config.main.sidebarIndex === 3 && config.search.searchType === 1) return null;
+  if (config.main.sidebarIndex === 2 && config.search.searchType === 1) return null;
   return { ...currentQueryParams.value };
 });
 
@@ -926,19 +970,19 @@ const currentTitleIcon = computed(() => {
     case 'none':
       if (contentTitle.value) {
         switch (config.main.sidebarIndex) {
-          case 0: 
+          case 0:
             switch (libConfig.album.id) {
               case 0: return IconPhotoAll;
               default: return libConfig.album.selected ? IconPhotoAll : IconFolderExpanded;
             }
-          case 1: 
+          case 1:
             switch (libConfig.favorite.folderId) {
               case 0: return IconHeart;
               case 1: return IconFolderFavorite;
               default: return IconFolderFavorite;
             }
-          case 2: return config.calendar.isMonthly ? IconCalendarMonth : IconCalendarDay;
-          case 3: return IconPhotoSearch;
+          case 2: return IconPhotoSearch;
+          case 3: return config.calendar.isMonthly ? IconCalendarMonth : IconCalendarDay;
           case 4: return IconTag;
           case 5: return IconPersonSearch;
           case 6: return IconLocation;
@@ -1189,6 +1233,7 @@ function handleItemAction(payload: { action: string, index: number }) {
   const actionMap = {
     'open': () => openImageViewer(selectedItemIndex.value, true),
     'edit': () => showEditImage.value = true,
+    'adjust': () => showAdjustImage.value = true,
     'copy': () => clickCopyImage(fileList.value[selectedItemIndex.value].file_path),
     'rename': clickRename,
     'move-to': () => showMoveTo.value = true,
@@ -1206,7 +1251,10 @@ function handleItemAction(payload: { action: string, index: number }) {
     'tag': clickTag,
     'comment': () => showCommentMsgbox.value = true,
     'search-similar': () => enterSimilarSearchMode(fileList.value[selectedItemIndex.value]),
-    'find-person': () => enterPersonSearchMode(fileList.value[selectedItemIndex.value]),
+    'find-person': () => {
+      if (!config.settings.face.enabled) return;
+      enterPersonSearchMode(fileList.value[selectedItemIndex.value]);
+    },
     'set-album-cover': clickSetAlbumCover,
   };
 
@@ -1655,6 +1703,11 @@ onMounted( async() => {
       : [];
     if (deletedIds.length === 0 || fileList.value.length === 0) return;
 
+    if (tempViewMode.value === 'similar' || tempViewMode.value === 'album') {
+      updateContent();
+      return;
+    }
+
     const deleteSet = new Set(deletedIds);
     let removedAny = false;
     for (let i = fileList.value.length - 1; i >= 0; i--) {
@@ -1766,8 +1819,8 @@ watch(
   ],
   () => {
     setTimeout(() => {
-      // Only update content if we are currently in the Image Search view (index 1)
-      if (config.main.sidebarIndex === 3) {
+      // Only update content if we are currently in the Image Search view
+      if (config.main.sidebarIndex === 2) {
         scrollPosition.value = 0;   // reset file scroll position
         selectedItemIndex.value = 0; // reset selected item index to 0
         
@@ -1802,7 +1855,12 @@ watch(
     // Clear active adjustments when the file list changes to avoid unnecessary confirmation dialogs
     uiStore.clearActiveAdjustments();
 
-    // Skip if in temp view mode to prevent race conditions
+    // If temp mode is active and query context changed, exit temp mode and refresh.
+    if (tempViewMode.value === 'similar' || tempViewMode.value === 'album') {
+      updateContent();
+      return;
+    }
+    // Skip other temp modes to prevent race conditions
     if (tempViewMode.value !== 'none') return;
     
     setTimeout(() => {
@@ -2148,7 +2206,7 @@ async function updateContent() {
   fileList.value = [];
   isLoading.value = true;
 
-  if(newIndex === 0) {   // album  
+  if(newIndex === 0) {   // album
     if(libConfig.album.id === null) {
       contentTitle.value = "";
     } else if(libConfig.album.id === 0) {   // all files
@@ -2248,25 +2306,7 @@ async function updateContent() {
       }
     }
   }
-  else if(newIndex === 2) {   // calendar
-    if(libConfig.calendar.year === null) {
-      contentTitle.value = "";
-    } else if (libConfig.calendar.year === -1) {  // on this day
-      contentTitle.value = localeMsg.value.calendar.on_this_day;
-      getFileList({ startDate: -1, endDate: -1 }, requestId);
-    } else {
-      if (libConfig.calendar.month === -1) {          // yearly
-        contentTitle.value = formatDate(libConfig.calendar.year!, 1, 1, localeMsg.value.format.year);
-      } else if (libConfig.calendar.date === -1) {    // monthly
-        contentTitle.value = formatDate(libConfig.calendar.year!, libConfig.calendar.month!, 1, localeMsg.value.format.month);
-      } else {                                    // daily
-        contentTitle.value = formatDate(libConfig.calendar.year!, libConfig.calendar.month!, libConfig.calendar.date!, localeMsg.value.format.date_long);
-      }
-      const [startDate, endDate] = getCalendarDateRange(libConfig.calendar.year!, libConfig.calendar.month!, libConfig.calendar.date!);
-      getFileList({ startDate, endDate }, requestId);
-    }
-  }
-  else if(newIndex === 3) {   // image search
+  else if(newIndex === 2) {   // image search
     if(config.search.searchType === 0) {   // search
       if (libConfig.search.searchText) {
         contentTitle.value = localeMsg.value.search.search_images + ' - ' + libConfig.search.searchText;
@@ -2290,6 +2330,24 @@ async function updateContent() {
       } else {
         contentTitle.value = localeMsg.value.search.filename_search;
       }
+    }
+  }
+  else if(newIndex === 3) {   // calendar
+    if(libConfig.calendar.year === null) {
+      contentTitle.value = "";
+    } else if (libConfig.calendar.year === -1) {  // on this day
+      contentTitle.value = localeMsg.value.calendar.on_this_day;
+      getFileList({ startDate: -1, endDate: -1 }, requestId);
+    } else {
+      if (libConfig.calendar.month === -1) {          // yearly
+        contentTitle.value = formatDate(libConfig.calendar.year!, 1, 1, localeMsg.value.format.year);
+      } else if (libConfig.calendar.date === -1) {    // monthly
+        contentTitle.value = formatDate(libConfig.calendar.year!, libConfig.calendar.month!, 1, localeMsg.value.format.month);
+      } else {                                    // daily
+        contentTitle.value = formatDate(libConfig.calendar.year!, libConfig.calendar.month!, libConfig.calendar.date!, localeMsg.value.format.date_long);
+      }
+      const [startDate, endDate] = getCalendarDateRange(libConfig.calendar.year!, libConfig.calendar.month!, libConfig.calendar.date!);
+      getFileList({ startDate, endDate }, requestId);
     }
   } 
   else if(newIndex === 4) {   // tag
@@ -2427,6 +2485,9 @@ function enterSimilarSearchMode(file: any) {
 
 // --- Person Search Mode Logic ---
 async function enterPersonSearchMode(file: any) {
+  if (!config.settings.face.enabled) {
+    return;
+  }
   if (!file || !file.id) {
     return;
   }
@@ -2596,7 +2657,7 @@ function exitTempViewMode() {
 function handleTitleClick() {
   switch (tempViewMode.value) {
     case 'similar':
-      config.main.sidebarIndex = 3;   // search tab
+      config.main.sidebarIndex = 2;   // search tab
       config.search.searchType = 1;   // similar image 
       break;
     case 'person':
@@ -2631,6 +2692,7 @@ function handleTitleClick() {
 const onFileSaved = (success: boolean) => {
   if (success) {
     showEditImage.value = false;
+    showAdjustImage.value = false;
     updateFile(fileList.value[selectedItemIndex.value]);
   } else {
     toolTipRef.value.showTip(localeMsg.value.tooltip.save_image.failed, true);

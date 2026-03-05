@@ -1,4 +1,5 @@
 import { computed, markRaw, Ref } from 'vue';
+import { config } from '@/common/config';
 import {
   IconMonitor,
   IconHeart,
@@ -17,6 +18,7 @@ import {
   IconFolderSearch,
   IconPersonSearch,
   IconImageEdit,
+  IconAdjustments,
 } from '@/common/icons';
 
 export const useFileMenuItems = (
@@ -49,7 +51,8 @@ export const useFileMenuItems = (
       {
         label: localeMsg.value.menu.file.find_person_images,
         icon: markRaw(IconPersonSearch),
-        disabled: f.file_type !== 1 && f.file_type !== 3,
+        hidden: !config.settings.face.enabled,
+        disabled: !config.settings.face.enabled || (f.file_type !== 1 && f.file_type !== 3),
         action: createAction('find-person')
       },
       {
@@ -72,6 +75,12 @@ export const useFileMenuItems = (
         shortcut: isMac ? '⌘E' : 'Ctrl+E',
         disabled: f.file_type !== 1 && f.file_type !== 3,
         action: createAction('edit')
+      },
+      {
+        label: localeMsg.value.menu.file.adjust,
+        icon: markRaw(IconAdjustments),
+        disabled: f.file_type !== 1 && f.file_type !== 3,
+        action: createAction('adjust')
       },
       {
         label: localeMsg.value.menu.file.copy,

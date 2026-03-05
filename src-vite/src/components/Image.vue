@@ -58,7 +58,7 @@
 
     <!-- Faces Overlay -->
     <div 
-      v-if="config.main.sidebarIndex === 5 && faces.length > 0 && !isDraggingImage && !isSlideShow"
+      v-if="showFaceOverlay && faces.length > 0 && !isDraggingImage && !isSlideShow"
       class="absolute inset-0 w-full h-full pointer-events-none overflow-hidden"
     >
       <div
@@ -237,6 +237,9 @@ const mouseDragNavDeltaY = ref(0);
 const mouseDragNavTriggered = ref(false);
 
 const faces = ref<any[]>([]); // Store faces for the current image
+const showFaceOverlay = computed(() =>
+  config.settings.face.enabled && config.main.sidebarIndex === 5
+);
 
 let animationFrameId: number | null = null;
 const latestMouseEvent = ref<MouseEvent | null>(null);
@@ -829,10 +832,10 @@ watch(() => props.filePath, async (newFilePath) => {
   }
 }, { immediate: true });
 
-// watch fileId changes to fetch faces
-watch(() => props.fileId, async (newFileId) => {
+// watch fileId / face toggle changes to fetch faces
+watch(() => [props.fileId, config.settings.face.enabled], async ([newFileId, faceEnabled]) => {
   faces.value = []; // Clear previous faces
-  if (newFileId) {
+  if (faceEnabled && newFileId) {
     const result = await getFacesForFile(newFileId);
     if (result && result.length > 0) {
       // Parse bbox JSON string for each face

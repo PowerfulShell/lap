@@ -310,6 +310,7 @@
       "view_in_new_window": "In neuem Fenster...",
       "copy": "In die Zwischenablage",
       "edit_image": "Bild bearbeiten...",
+      "adjust": "Anpassen...",
       "find_similar_images": "Ähnliche finden",
       "find_person_images": "Personenbilder finden",
       "find_album_folder": "Albumordner finden",
@@ -515,6 +516,7 @@
     },
     "image_editor": {
       "title": "Bild bearbeiten",
+      "adjust_title": "Bild anpassen",
       "tab_edit": "Anpassen",
       "histogram": "Histogramm",
       "light": "Licht",
@@ -849,6 +851,7 @@
     },
     "face_recognition": {
       "title": "Gesichtserkennung",
+      "beta_hint": "Beta: Funktion ist noch in Entwicklung",
       "similarity": "Gesichtsähnlichkeit",
       "cluster_threshold": "Cluster-Schwellenwert",
       "cluster_threshold_hint": "Hoch = Strikt",

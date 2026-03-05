@@ -119,6 +119,7 @@ export const useConfigStore = defineStore('configStore', {
       
       // face recognition settings
       face: {
+        enabled: false, // enable face recognition in image search
         // Cluster threshold index: 0=Very High, 1=High, 2=Medium, 3=Low
         clusterThresholdIndex: 2, // Default: Medium
       },
@@ -227,9 +228,16 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     // face recognition settings
+    setFaceEnabled(enabled) {
+      if (!this.settings.face) {
+        this.settings.face = { enabled, clusterThresholdIndex: 2 };
+      } else {
+        this.settings.face.enabled = enabled;
+      }
+    },
     setFaceClusterThresholdIndex(index) {
       if (!this.settings.face) {
-        this.settings.face = { clusterThresholdIndex: index };
+        this.settings.face = { enabled: true, clusterThresholdIndex: index };
       } else {
         this.settings.face.clusterThresholdIndex = index;
       }

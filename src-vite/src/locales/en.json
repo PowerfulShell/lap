@@ -310,6 +310,7 @@
       "view_in_new_window": "View in new window...",
       "copy": "Copy to clipboard",
       "edit_image": "Edit image...",
+      "adjust": "Adjust...",
       "find_similar_images": "Find similar images",
       "find_person_images": "Find person images",
       "find_album_folder": "Find album folder",
@@ -515,6 +516,7 @@
     },
     "image_editor": {
       "title": "Edit image",
+      "adjust_title": "Adjust image",
       "tab_edit": "Adjust",
       "histogram": "Histogram",
       "light": "Light",
@@ -849,6 +851,7 @@
     },
     "face_recognition": {
       "title": "Face Recognition",
+      "beta_hint": "Beta: still under development",
       "similarity": "Face similarity",
       "cluster_threshold": "Clustering Threshold",
       "cluster_threshold_hint": "Higher = Stricter (more persons), Lower = Looser (may merge different people)",

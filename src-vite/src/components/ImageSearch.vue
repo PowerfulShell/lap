@@ -26,7 +26,7 @@
           {{ $t('search.filename_search') }}
         </a>
       </div>
-      <ContextMenu class="sidebar-panel-action" :menuItems="searchPanelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
+      <ContextMenu :menuItems="searchPanelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
     </div>
 
     <!-- 0: search text -->

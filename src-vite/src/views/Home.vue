@@ -41,14 +41,14 @@
             ]" 
             data-tauri-drag-region
           >
-            <div v-for="(item, index) in buttons" :key="index">
+            <div v-for="item in visibleButtons" :key="item.index">
               <TButton 
                 :buttonSize="'large'" 
                 :icon="item.icon" 
                 :text="item.text" 
                 :tooltip="item.tooltip || ''"
-                :selected="config.main.sidebarIndex === index"
-                @click="clickSidebar(index)"
+                :selected="config.main.sidebarIndex === item.index"
+                @click="clickSidebar(item.index)"
               />
             </div>
 
@@ -149,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getName } from '@tauri-apps/api/app';
@@ -247,49 +247,29 @@ const updateButtonTooltip = computed(() => {
   return localeMsg.value.settings.about.auto_update.update;
 });
 
-// buttons 
+// buttons
 const buttons = computed(() =>  [
-  { 
-    icon: IconPhotoAll,  
-    component: Library,
-    text: localeMsg.value.sidebar.album
-  },
-  { 
-    icon: IconHeart, 
-    component: Favorite,
-    text: localeMsg.value.sidebar.favorite 
-  },
-  { 
-    icon: IconCalendarDay, 
-    component: Calendar,
-    text: localeMsg.value.sidebar.calendar 
-  },
-  { 
-    icon: IconSearch,
-    component: ImageSearch,
-    text: localeMsg.value.sidebar.search
-  },
-  { 
-    icon: IconTag,
-    component: Tag,
-    text: localeMsg.value.sidebar.tag 
-  },
-  { 
-    icon: IconPerson, 
-    component: Person, 
-    text: localeMsg.value.sidebar.people
-  },
-  { 
-    icon: IconLocation, 
-    component: Location, 
-    text: localeMsg.value.sidebar.location 
-  },
-  { 
-    icon: IconCameraAperture,  
-    component: Camera,
-    text: localeMsg.value.sidebar.camera 
-  },
+  { icon: IconPhotoAll, component: Library, text: localeMsg.value.sidebar.album },
+  { icon: IconHeart, component: Favorite, text: localeMsg.value.sidebar.favorite },
+  { icon: IconSearch, component: ImageSearch, text: localeMsg.value.sidebar.search },
+  { icon: IconCalendarDay, component: Calendar, text: localeMsg.value.sidebar.calendar },
+  { icon: IconTag, component: Tag, text: localeMsg.value.sidebar.tag },
+  { icon: IconPerson, component: Person, text: localeMsg.value.sidebar.people, hidden: !config.settings.face.enabled },
+  { icon: IconLocation, component: Location, text: localeMsg.value.sidebar.location },
+  { icon: IconCameraAperture, component: Camera, text: localeMsg.value.sidebar.camera },
 ]);
+
+const visibleButtons = computed(() =>
+  buttons.value
+    .map((item, index) => ({ ...item, index }))
+    .filter(item => !item.hidden)
+);
+
+watch(() => config.settings.face.enabled, (enabled) => {
+  if (!enabled && config.main.sidebarIndex === 5) {
+    config.main.sidebarIndex = 0;
+  }
+});
 
 const libraryMenuItems = computed(() => {
   const items: any[] = [];

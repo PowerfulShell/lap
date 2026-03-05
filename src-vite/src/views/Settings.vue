@@ -201,8 +201,21 @@
                  <option v-for="(option, index) in similarityOptions" :key="index" :value="option.value">{{ option.label }}</option>
               </select>
             </div>
-            <!-- Face Cluster -->
+            <!-- Face Recognition Toggle -->
             <div class="flex items-center justify-between p-2 rounded-box hover:bg-base-100/10 transition-colors duration-200">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center">
+                  <div>{{ $t('settings.face_recognition.title') }}</div>
+                  <span class="ml-2 px-1.5 h-5 inline-flex items-center rounded-box text-[10px] font-semibold tracking-[0.08em] text-warning border border-warning/30 bg-warning/10 cursor-default">
+                    BETA
+                  </span>
+                </div>
+                <div class="text-xs text-base-content/30">{{ $t('settings.face_recognition.beta_hint') }}</div>
+              </div>
+              <input type="checkbox" class="toggle toggle-primary toggle-sm" v-model="config.settings.face.enabled" />
+            </div>
+            <!-- Face Cluster -->
+            <div v-if="config.settings.face.enabled" class="flex items-center justify-between p-2 rounded-box hover:bg-base-100/10 transition-colors duration-200">
               <div class="flex flex-col gap-0.5">
                 <div class="flex items-center">
                   <div>{{ $t('settings.face_recognition.similarity') }}</div>
@@ -212,7 +225,7 @@
                 </div>
                 <div class="text-xs text-base-content/30">{{ $t('settings.face_recognition.cluster_threshold_hint') }}</div>
               </div>
-               <select class="select select-bordered select-sm min-w-32" v-model="config.settings.face.clusterThresholdIndex">
+               <select class="select select-bordered select-sm min-w-32" v-model="config.settings.face.clusterThresholdIndex" :disabled="!config.settings.face.enabled">
                  <option v-for="(option, index) in faceClusterOptions" :key="index" :value="option.value">{{ option.label }}</option>
               </select>
             </div>
@@ -492,6 +505,9 @@ watch(() => config.settings.imageSearch.limit, (newValue) => {
 });
 
 // face settings
+watch(() => config.settings.face.enabled, (newValue) => {
+  emit('settings-faceEnabled-changed', newValue);
+});
 watch(() => config.settings.face.clusterThresholdIndex, (newValue) => {
   emit('settings-faceClusterThresholdIndex-changed', newValue);
 });

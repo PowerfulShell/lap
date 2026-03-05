@@ -52,7 +52,7 @@
           </span>
         </div>
       </div>
-      <ContextMenu class="sidebar-panel-action" :menuItems="personPanelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
+      <ContextMenu :menuItems="personPanelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
     </div>
 
     <!-- Person List -->
