@@ -895,6 +895,8 @@
         "downloading": "다운로드 중... {percent}%",
         "download_finished": "다운로드 완료. 설치 중...",
         "update_installed": "업데이트 설치 완료. 재시작 중...",
+        "update_installed_waiting_restart": "업데이트가 설치되었습니다. 앱을 재시작해 주세요.",
+        "restart": "재시작",
         "failed_check": "업데이트 확인 실패",
         "failed_install": "업데이트 설치 실패"
       }

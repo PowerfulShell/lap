@@ -46,7 +46,7 @@
                 :buttonSize="'large'" 
                 :icon="item.icon" 
                 :text="item.text" 
-                :tooltip="item.tooltip || ''"
+                :tooltip="(item as any).tooltip || ''"
                 :selected="config.main.sidebarIndex === item.index"
                 @click="clickSidebar(item.index)"
               />
@@ -84,15 +84,15 @@
               </ContextMenu>
 
               <button
-                v-if="updateAvailable || isInstallingUpdate"
+                v-if="updateAvailable || isInstallingUpdate || isUpdateReadyToRestart"
                 class="badge badge-sm border-0 px-2 py-2 font-medium transition-colors"
-                :class="updateAvailable ? 'badge-primary cursor-pointer' : 'badge-neutral/60 cursor-default'"
+                :class="isUpdateActionEnabled ? 'badge-primary cursor-pointer' : 'badge-neutral/60 cursor-default'"
                 :disabled="isInstallingUpdate"
                 :title="updateButtonTooltip"
                 @click="installAvailableUpdate"
               >
                 <span v-if="isInstallingUpdate" class="loading loading-spinner loading-xs"></span>
-                <span>{{ isInstallingUpdate ? $t('settings.about.auto_update.installing') : $t('settings.about.auto_update.update') }}</span>
+                <span>{{ updateButtonText }}</span>
               </button>
 
             </div>
@@ -234,18 +234,37 @@ const toolTipRef = ref<InstanceType<typeof ToolTip> | null>(null);
 const updateAvailable = ref(false);
 const isCheckingUpdate = ref(false);
 const isInstallingUpdate = ref(false);
+const isUpdateReadyToRestart = ref(false);
 const updateVersion = ref('');
 let currentUpdate: any = null;
+const restartLabel = computed(() => localeMsg.value.settings.about.auto_update.restart);
 
 const updateButtonTooltip = computed(() => {
   if (isInstallingUpdate.value) {
     return localeMsg.value.settings.about.auto_update.installing;
+  }
+  if (isUpdateReadyToRestart.value) {
+    return restartLabel.value;
   }
   if (updateAvailable.value && updateVersion.value) {
     return localeMsg.value.settings.about.auto_update.new_version_available.replace('{version}', updateVersion.value);
   }
   return localeMsg.value.settings.about.auto_update.update;
 });
+
+const updateButtonText = computed(() => {
+  if (isInstallingUpdate.value) {
+    return localeMsg.value.settings.about.auto_update.installing;
+  }
+  if (isUpdateReadyToRestart.value) {
+    return restartLabel.value;
+  }
+  return localeMsg.value.settings.about.auto_update.update;
+});
+
+const isUpdateActionEnabled = computed(() =>
+  updateAvailable.value || isUpdateReadyToRestart.value
+);
 
 // buttons
 const buttons = computed(() =>  [
@@ -360,18 +379,37 @@ async function autoCheckForUpdates() {
 }
 
 async function installAvailableUpdate() {
-  if (!currentUpdate || isInstallingUpdate.value) return;
+  if (isInstallingUpdate.value) return;
+
+  if (isUpdateReadyToRestart.value) {
+    try {
+      await relaunch();
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, localeMsg.value.settings.about.auto_update.failed_install);
+      console.error('Failed to relaunch after update:', error);
+      toolTipRef.value?.showTip(message, true);
+    }
+    return;
+  }
+
+  if (!currentUpdate) return;
 
   try {
     isInstallingUpdate.value = true;
     toolTipRef.value?.showTip(localeMsg.value.settings.about.auto_update.downloading_update);
     await currentUpdate.downloadAndInstall();
-    toolTipRef.value?.showTip(localeMsg.value.settings.about.auto_update.update_installed);
-    await relaunch();
+    updateAvailable.value = false;
+    updateVersion.value = '';
+    currentUpdate = null;
+    isUpdateReadyToRestart.value = true;
+    toolTipRef.value?.showTip(
+      localeMsg.value.settings.about.auto_update.update_installed_waiting_restart
+    );
   } catch (error: unknown) {
     const message = getErrorMessage(error, localeMsg.value.settings.about.auto_update.failed_install);
     console.error('Failed to install update:', error);
     toolTipRef.value?.showTip(message, true);
+  } finally {
     isInstallingUpdate.value = false;
   }
 }
@@ -380,18 +418,19 @@ const doSwitchLibrary = async (libraryId: string) => {
   try {
     isSwitchingLibrary.value = true;
 
+    // Save current library state before switching (preserves the indexing queue)
+    await libConfig.save();
+
     // Cancel any running indexing before switching
     if (libConfig.index.status > 0 && libConfig.index.albumQueue.length > 0) {
-      for (const albumId of libConfig.index.albumQueue) {
+      const queueCopy = [...libConfig.index.albumQueue];
+      for (const albumId of queueCopy) {
         await cancelIndexing(albumId);
       }
     }
     
     // Cancel face indexing if running
     await cancelFaceIndex();
-    
-    // Save current library state before switching
-    await libConfig.save();
     
     await switchLibrary(libraryId);
     

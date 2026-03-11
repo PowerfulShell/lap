@@ -895,6 +895,8 @@
         "downloading": "Herunterladen... {percent}%",
         "download_finished": "Download abgeschlossen. Installieren...",
         "update_installed": "Update installiert. Neustart...",
+        "update_installed_waiting_restart": "Update installiert. Bitte App neu starten.",
+        "restart": "Neustart",
         "failed_check": "Fehler beim Suchen nach Updates",
         "failed_install": "Fehler beim Installieren des Updates"
       }

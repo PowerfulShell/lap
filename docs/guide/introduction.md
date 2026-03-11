@@ -23,4 +23,4 @@ Lap is currently available for macOS, Linux, and Windows.
 - macOS: Download the latest `.dmg` and drag **Lap** into **Applications**.
 - Linux: Download the latest `.deb` package and install it with your package manager.
 - Windows: Download the latest `.msi` installer and complete the setup wizard.
-- [Check out what's new in v0.1.8](/guide/release-notes/v0.1.8)
+- [Check out what's new in v0.1.9](/guide/release-notes/v0.1.9)

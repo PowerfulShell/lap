@@ -37,6 +37,7 @@ export default defineConfig({
             {
                 text: 'Release Notes',
                 items: [
+                    { text: 'v0.1.9', link: '/guide/release-notes/v0.1.9' },
                     { text: 'v0.1.8', link: '/guide/release-notes/v0.1.8' },
                     { text: 'v0.1.7', link: '/guide/release-notes/v0.1.7' },
                     { text: 'v0.1.6', link: '/guide/release-notes/v0.1.6' },

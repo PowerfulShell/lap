@@ -895,6 +895,8 @@
         "downloading": "Baixando... {percent}%",
         "download_finished": "Download concluído. Instalando...",
         "update_installed": "Atualização instalada. Reiniciando...",
+        "update_installed_waiting_restart": "Atualização instalada. Reinicie o aplicativo.",
+        "restart": "Reiniciar",
         "failed_check": "Falha ao verificar atualizações",
         "failed_install": "Falha ao instalar atualização"
       }
