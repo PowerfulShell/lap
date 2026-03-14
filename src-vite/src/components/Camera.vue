@@ -2,42 +2,54 @@
 
   <div class="sidebar-panel">
     <div class="sidebar-panel-header">
-      <span class="sidebar-panel-header-title">{{ localeMsg.sidebar.camera }}</span>
+      <div class="tabs tabs-box h-8 p-1">
+        <button
+          :class="['tab px-3 min-h-6 h-6 text-xs', activeTab === 'camera' ? 'tab-active' : '']"
+          @click="setActiveTab('camera')"
+        >
+          {{ localeMsg.sidebar.camera }}
+        </button>
+        <button
+          :class="['tab px-3 min-h-6 h-6 text-xs', activeTab === 'lens' ? 'tab-active' : '']"
+          @click="setActiveTab('lens')"
+        >
+          {{ $t('file_info.lens') }}
+        </button>
+      </div>
       <ContextMenu :menuItems="cameraPanelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
     </div>
 
-    <!-- camera -->
-    <div v-if="cameras.length > 0" class="flex-1 overflow-x-hidden overflow-y-auto">
+    <div v-if="activeItems.length > 0" class="flex-1 overflow-x-hidden overflow-y-auto">
       <ul>
-        <li v-for="camera in sortedCameras">
+        <li v-for="item in sortedItems" :key="item.make">
           <div
             :class="[
               'sidebar-item',
-              libConfig.camera.make === camera.make && !libConfig.camera.model ? 'sidebar-item-selected' : 'sidebar-item-hover',
+              isMakeSelected(item.make) ? 'sidebar-item-selected' : 'sidebar-item-hover',
             ]"
-            @click="clickCameraMake(camera)"
+            @click="clickMake(item)"
           >
             <IconRight
               :class="[
                 'p-1 w-6 h-6 shrink-0 transition-transform',
-                camera.is_expanded ? 'rotate-90' : ''
+                item.is_expanded ? 'rotate-90' : ''
               ]"
-              @click.stop="clickExpandCamera(camera)"
+              @click.stop="clickExpand(item)"
             />
-            <span class="sidebar-item-label">{{ camera.make }}</span>
-            <span class="sidebar-item-count">{{ camera.counts.reduce((a: number, b: number) => a + b, 0).toLocaleString() }}</span>
+            <span class="sidebar-item-label">{{ item.make }}</span>
+            <span class="sidebar-item-count">{{ item.counts.reduce((a: number, b: number) => a + b, 0).toLocaleString() }}</span>
           </div>
-          <ul v-if="camera.is_expanded && camera.models.length > 0">
-            <li v-for="(model, index) in camera.models" class="pl-4"> 
+          <ul v-if="item.is_expanded && item.models.length > 0">
+            <li v-for="(model, index) in item.models" :key="`${item.make}-${model}`" class="pl-4">
               <div
                 :class="[
                   'sidebar-item sidebar-item-compact ml-3',
-                  libConfig.camera.model === model ? 'sidebar-item-selected' : 'sidebar-item-hover',
+                  isModelSelected(model) ? 'sidebar-item-selected' : 'sidebar-item-hover',
                 ]"
-                @click="clickCameraModel(camera.make, model)"
+                @click="clickModel(item.make, model)"
               >
                 <span class="sidebar-item-label">{{ model }}</span>
-                <span class="text-[10px] tabular-nums text-base-content/30 ml-1">({{ camera.counts[index].toLocaleString() }})</span>
+                <span class="text-[10px] tabular-nums text-base-content/30 ml-1">({{ item.counts[index].toLocaleString() }})</span>
               </div>
             </li>
           </ul>
@@ -60,7 +72,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { config, libConfig } from '@/common/config';
-import { getCameraInfo } from '@/common/api';
+import { getCameraInfo, getLensInfo } from '@/common/api';
 import { IconCamera, IconDot, IconMore, IconRight } from '@/common/icons';
 import ContextMenu from '@/components/ContextMenu.vue';
 
@@ -75,16 +87,25 @@ const { locale, messages } = useI18n();
 const localeMsg = computed(() => messages.value[locale.value] as any);
 
 const cameras = ref<any[]>([]);
+const lenses = ref<any[]>([]);
 
-const sortedCameras = computed(() => {
+const activeTab = computed(() => {
+  return (libConfig.camera as any).tab === 'lens' ? 'lens' : 'camera';
+});
+
+const activeItems = computed(() => {
+  return activeTab.value === 'lens' ? lenses.value : cameras.value;
+});
+
+const sortedItems = computed(() => {
   if (config.leftPanel.sortCount) {
-    return [...cameras.value].sort((a, b) => {
+    return [...activeItems.value].sort((a, b) => {
       const countA = (a.counts || []).reduce((sum: number, c: number) => sum + c, 0);
       const countB = (b.counts || []).reduce((sum: number, c: number) => sum + c, 0);
       return countB - countA;
     });
   }
-  return cameras.value;
+  return activeItems.value;
 });
 
 const cameraPanelMenuItems = computed(() => [
@@ -101,43 +122,60 @@ const cameraPanelMenuItems = computed(() => [
 ]);
 
 onMounted(async () => {
-  if (cameras.value.length === 0) {
-    await getCameras();
-
-    if (cameras.value.length === 0) {
-      (libConfig.camera as any).make = null;
-      (libConfig.camera as any).model = null;
-    }
-
-    if(libConfig.camera.make && libConfig.camera.model) {
-      let camera = cameras.value.find(camera => camera.make === libConfig.camera.make)
-      if(camera) {
-        camera.is_expanded = true;     // expand selected camera
-      } else {
-        (libConfig.camera as any).make = null;
-        (libConfig.camera as any).model = null;
-      }
-    }
+  if ((libConfig.camera as any).tab !== 'lens' && (libConfig.camera as any).tab !== 'camera') {
+    (libConfig.camera as any).tab = 'camera';
   }
+
+  if (cameras.value.length === 0 || lenses.value.length === 0) {
+    await Promise.all([getCameras(), getLenses()]);
+  }
+
+  validateSelections();
+  expandSelectedItem(cameras.value, (libConfig.camera as any).make, (libConfig.camera as any).model);
+  expandSelectedItem(lenses.value, (libConfig.camera as any).lensMake, (libConfig.camera as any).lensModel);
 });
 
-/// click camera icon to expand or collapse models
-function clickExpandCamera(camera: any) {
-  camera.is_expanded = !camera.is_expanded; 
-};
-
-/// click a camera to select it
-function clickCameraMake(camera: any) {
-  (libConfig.camera as any).make = camera.make;
-  (libConfig.camera as any).model = null;
-
-  camera.is_expanded = true;
+function setActiveTab(tab: 'camera' | 'lens') {
+  (libConfig.camera as any).tab = tab;
 }
 
-/// click a camera to select it
-function clickCameraModel(make: string, model: string) {
-  (libConfig.camera as any).make = make;
-  (libConfig.camera as any).model = model;
+function isMakeSelected(make: string) {
+  if (activeTab.value === 'lens') {
+    return (libConfig.camera as any).lensMake === make && !(libConfig.camera as any).lensModel;
+  }
+  return (libConfig.camera as any).make === make && !(libConfig.camera as any).model;
+}
+
+function isModelSelected(model: string) {
+  if (activeTab.value === 'lens') {
+    return (libConfig.camera as any).lensModel === model;
+  }
+  return (libConfig.camera as any).model === model;
+}
+
+function clickExpand(item: any) {
+  item.is_expanded = !item.is_expanded;
+}
+
+function clickMake(item: any) {
+  if (activeTab.value === 'lens') {
+    (libConfig.camera as any).lensMake = item.make;
+    (libConfig.camera as any).lensModel = null;
+  } else {
+    (libConfig.camera as any).make = item.make;
+    (libConfig.camera as any).model = null;
+  }
+  item.is_expanded = true;
+}
+
+function clickModel(make: string, model: string) {
+  if (activeTab.value === 'lens') {
+    (libConfig.camera as any).lensMake = make;
+    (libConfig.camera as any).lensModel = model;
+  } else {
+    (libConfig.camera as any).make = make;
+    (libConfig.camera as any).model = model;
+  }
 }
 
 /// get cameras from db
@@ -149,6 +187,49 @@ async function getCameras() {
       is_expanded: false,
     }));
   }
-};
+}
+
+async function getLenses() {
+  const fetchedLenses = await getLensInfo();
+  if (fetchedLenses) {
+    lenses.value = fetchedLenses.map((lens: any) => ({
+      ...lens,
+      is_expanded: false,
+    }));
+  }
+}
+
+function expandSelectedItem(items: any[], selectedMake: string | null, selectedModel: string | null) {
+  if (!selectedMake || !selectedModel) return;
+  const item = items.find(data => data.make === selectedMake);
+  if (item) item.is_expanded = true;
+}
+
+function validateSelections() {
+  if (cameras.value.length === 0) {
+    (libConfig.camera as any).make = null;
+    (libConfig.camera as any).model = null;
+  } else if ((libConfig.camera as any).make) {
+    const hasMake = cameras.value.some(camera => camera.make === (libConfig.camera as any).make);
+    if (!hasMake) {
+      (libConfig.camera as any).make = null;
+      (libConfig.camera as any).model = null;
+    }
+  }
+
+  if (lenses.value.length === 0) {
+    (libConfig.camera as any).lensMake = null;
+    (libConfig.camera as any).lensModel = null;
+    if (activeTab.value === 'lens') {
+      (libConfig.camera as any).tab = 'camera';
+    }
+  } else if ((libConfig.camera as any).lensMake) {
+    const hasLensMake = lenses.value.some(lens => lens.make === (libConfig.camera as any).lensMake);
+    if (!hasLensMake) {
+      (libConfig.camera as any).lensMake = null;
+      (libConfig.camera as any).lensModel = null;
+    }
+  }
+}
 
 </script>

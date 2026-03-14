@@ -8,7 +8,7 @@ use crate::t_config::{self, AppConfig, Library, LibraryInfo, LibraryState};
 use crate::t_face;
 use crate::t_image;
 use crate::t_sqlite::{
-    ACamera, AFile, AFolder, ALocation, ATag, AThumb, ATimeLine, Album, ImageSearchParams, Person,
+    ACamera, AFile, AFolder, ALens, ALocation, ATag, AThumb, ATimeLine, Album, ImageSearchParams, Person,
     QueryParams,
 };
 use crate::t_utils;
@@ -620,6 +620,12 @@ pub fn get_taken_dates(ascending: bool) -> Result<Vec<(String, i64)>, String> {
 #[tauri::command]
 pub fn get_camera_info() -> Result<Vec<ACamera>, String> {
     ACamera::get_from_db().map_err(|e| format!("Error while getting camera info: {}", e))
+}
+
+/// get a file's lens make and model info
+#[tauri::command]
+pub fn get_lens_info() -> Result<Vec<ALens>, String> {
+    ALens::get_from_db().map_err(|e| format!("Error while getting lens info: {}", e))
 }
 
 // location

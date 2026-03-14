@@ -7,6 +7,7 @@
 use crate::t_ai;
 use crate::t_config;
 use crate::t_image;
+use crate::t_lens;
 use crate::t_utils;
 use crate::t_video;
 use base64::{Engine, engine::general_purpose};
@@ -578,6 +579,8 @@ pub struct QueryParams {
     pub end_date: i64,
     pub make: String,
     pub model: String,
+    pub lens_make: String,
+    pub lens_model: String,
     pub location_admin1: String,
     pub location_name: String,
     pub is_favorite: bool,
@@ -709,6 +712,13 @@ impl AFile {
             e_f_number = Self::get_exif_field(&exif, Tag::FNumber);
             e_focal_length = Self::get_exif_field(&exif, Tag::FocalLength);
             e_iso_speed = Self::get_exif_field(&exif, Tag::PhotographicSensitivity);
+
+            // Fallback: infer lens make from lens model prefix when LensMake is missing.
+            if e_lens_make.is_none() {
+                if let Some(model) = e_lens_model.as_deref() {
+                    e_lens_make = t_lens::infer_lens_make(model).map(|s| s.to_string());
+                }
+            }
         } else if file_type == 2 {
             // Video file
             if let Ok(video_metadata) = t_video::get_video_metadata(file_path) {
@@ -1494,6 +1504,15 @@ impl AFile {
             if !params.model.is_empty() {
                 conditions.push("a.e_model = ?");
                 sql_params.push(Box::new(params.model.clone()));
+            }
+        }
+
+        if !params.lens_make.is_empty() {
+            conditions.push("UPPER(a.e_lens_make) = UPPER(?)");
+            sql_params.push(Box::new(params.lens_make.clone()));
+            if !params.lens_model.is_empty() {
+                conditions.push("a.e_lens_model = ?");
+                sql_params.push(Box::new(params.lens_model.clone()));
             }
         }
 
@@ -3021,6 +3040,61 @@ impl ACamera {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ALens {
+    pub make: String,
+    pub models: Vec<String>,
+    pub counts: Vec<i64>,
+}
+
+impl ALens {
+    // get all lens makes and models from db
+    pub fn get_from_db() -> Result<Vec<Self>, String> {
+        let conn = open_conn()?;
+        let query = "SELECT UPPER(a.e_lens_make), a.e_lens_model, count(a.id) as count
+            FROM afiles a
+            WHERE a.e_lens_make IS NOT NULL AND a.e_lens_model IS NOT NULL
+            GROUP BY UPPER(a.e_lens_make), a.e_lens_model
+            ORDER BY UPPER(a.e_lens_make), a.e_lens_model"
+            .to_string();
+
+        let mut stmt = conn.prepare(query.as_str()).map_err(|e| e.to_string())?;
+
+        let rows = stmt
+            .query_map(params![], |row| {
+                let make: String = row.get(0)?;
+                let model: String = row.get(1)?;
+                let count: i64 = row.get(2)?;
+                Ok((make, model, count))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut hash_map: HashMap<String, (Vec<String>, Vec<i64>)> = HashMap::new();
+
+        for row_result in rows {
+            let (make, model, count) = row_result.map_err(|e| e.to_string())?;
+            let entry = hash_map
+                .entry(make)
+                .or_insert_with(|| (Vec::new(), Vec::new()));
+            entry.0.push(model);
+            entry.1.push(count);
+        }
+
+        let mut lenses: Vec<Self> = hash_map
+            .into_iter()
+            .map(|(make, (models, counts))| Self {
+                make,
+                models,
+                counts,
+            })
+            .collect();
+
+        lenses.sort_by(|a, b| a.make.cmp(&b.make));
+
+        Ok(lenses)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ALocation {
     pub cc: String,
     pub admin1: String,
@@ -3304,6 +3378,11 @@ fn create_db_internal() -> Result<(), String> {
     .map_err(|e| e.to_string())?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_afiles_make_model ON afiles(e_make, e_model)",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_afiles_lens_make_model ON afiles(e_lens_make, e_lens_model)",
         [],
     )
     .map_err(|e| e.to_string())?;

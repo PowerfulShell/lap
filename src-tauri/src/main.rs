@@ -20,6 +20,7 @@ mod t_config;
 mod t_dedup;
 mod t_face;
 mod t_image;
+mod t_lens;
 mod t_migration;
 mod t_sqlite;
 mod t_utils;
@@ -199,6 +200,7 @@ fn main() {
             t_cmds::get_taken_dates,
             // camera
             t_cmds::get_camera_info,
+            t_cmds::get_lens_info,
             // location
             t_cmds::get_location_info,
             // print

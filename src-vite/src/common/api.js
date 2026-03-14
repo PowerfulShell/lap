@@ -943,6 +943,19 @@ export async function getCameraInfo() {
   return null;
 }
 
+// get lens info
+export async function getLensInfo() {
+  try {
+    const lensInfo = await invoke('get_lens_info');
+    if (lensInfo) {
+      return lensInfo;
+    }
+  } catch (error) {
+    console.error('Failed to get lens info:', error);
+  }
+  return null;
+}
+
 // location
 
 // get location info

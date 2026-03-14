@@ -41,10 +41,13 @@ export const useLibraryStore = defineStore('libraryStore', {
       date: null,             // selected date (1-31), -1 means selecting a month
     },
 
-    /** @type {{ make: string | null, model: string | null }} */
+    /** @type {{ tab: 'camera' | 'lens', make: string | null, model: string | null, lensMake: string | null, lensModel: string | null }} */
     camera: {
+      tab: 'camera',
       make: null,             // selected camera make
       model: null,            // selected camera model
+      lensMake: null,         // selected lens make
+      lensModel: null,        // selected lens model
     },
 
     /** @type {{ cc: string | null, admin1: string | null, name: string | null }} */

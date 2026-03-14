@@ -70,8 +70,16 @@ pub struct CalendarState {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CameraState {
+    #[serde(default = "default_camera_tab")]
+    pub tab: String,
     pub make: Option<String>,
     pub model: Option<String>,
+    pub lens_make: Option<String>,
+    pub lens_model: Option<String>,
+}
+
+fn default_camera_tab() -> String {
+    "camera".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -687,7 +687,11 @@ function handleBreadcrumbClick(segmentIndex: number) {
   // Camera: clicking parent segment navigates to make only
   if (sidebarIndex === 7) {
     if (segmentIndex === 0) {
-      libConfig.camera.model = null;
+      if ((libConfig.camera as any).tab === 'lens') {
+        (libConfig.camera as any).lensModel = null;
+      } else {
+        libConfig.camera.model = null;
+      }
     }
     return;
   }
@@ -1032,6 +1036,8 @@ const currentQueryParams = ref({
   endDate: 0,
   make: "",
   model: "",
+  lensMake: "",
+  lensModel: "",
   locationAdmin1: "",
   locationName: "",
   isFavorite: false,
@@ -1802,6 +1808,8 @@ function buildScanStreamQueryParams() {
     endDate: 0,
     make: "",
     model: "",
+    lensMake: "",
+    lensModel: "",
     locationAdmin1: "",
     locationName: "",
     isFavorite: false,
@@ -2291,6 +2299,7 @@ watch(
     libConfig.tag.id, libConfig.tag.smartId,                                          // tag
     libConfig.location.admin1, libConfig.location.name,                               // location
     libConfig.camera.make, libConfig.camera.model,                                    // camera 
+    (libConfig.camera as any).tab, (libConfig.camera as any).lensMake, (libConfig.camera as any).lensModel, // lens
   ], 
   () => {
     // Clear active adjustments when the file list changes to avoid unnecessary confirmation dialogs
@@ -2536,6 +2545,8 @@ async function getFileList(
     endDate = 0, 
     make = '', 
     model = '', 
+    lensMake = '',
+    lensModel = '',
     locationAdmin1 = '', 
     locationName = '', 
     isFavorite = false, 
@@ -2557,6 +2568,8 @@ async function getFileList(
     endDate,
     make,
     model,
+    lensMake,
+    lensModel,
     locationAdmin1,
     locationName,
     isFavorite,
@@ -2791,6 +2804,8 @@ async function updateContent(force = false) {
               endDate: 0,
               make: "",
               model: "",
+              lensMake: "",
+              lensModel: "",
               locationAdmin1: "",
               locationName: "",
               isFavorite: false,
@@ -2941,7 +2956,19 @@ async function updateContent(force = false) {
     }
   }
   else if(newIndex === 7) {   // camera
-    if(libConfig.camera.make === null) {
+    if ((libConfig.camera as any).tab === 'lens') {
+      const lensMake = (libConfig.camera as any).lensMake;
+      const lensModel = (libConfig.camera as any).lensModel;
+      if (lensMake === null) {
+        contentTitle.value = "";
+      } else if (lensModel) {
+        contentTitle.value = `${lensMake} > ${lensModel}`;
+        getFileList({ lensMake, lensModel }, requestId);
+      } else {
+        contentTitle.value = `${lensMake}`;
+        getFileList({ lensMake }, requestId);
+      }
+    } else if(libConfig.camera.make === null) {
       contentTitle.value = "";
     } else {
       if(libConfig.camera.model) {

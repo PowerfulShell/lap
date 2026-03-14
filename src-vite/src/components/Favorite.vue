@@ -117,6 +117,8 @@ const buildFavoriteQueryParams = (rating = 0) => ({
   endDate: 0,
   make: "",
   model: "",
+  lensMake: "",
+  lensModel: "",
   locationAdmin1: "",
   locationName: "",
   isFavorite: true,
