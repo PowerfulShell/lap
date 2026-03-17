@@ -188,7 +188,7 @@
               </div>
               <input type="checkbox" class="toggle toggle-primary toggle-sm" v-model="config.settings.autoPlayVideo" />
             </div>
-            <!-- Show Comment -->
+            <!--
             <div class="flex items-center justify-between p-2 rounded-box hover:bg-base-100/10 transition-colors duration-200">
               <div class="flex flex-col gap-0.5">
                 <div>{{ $t('settings.image_view.show_comment') }}</div>
@@ -196,6 +196,7 @@
               </div>
               <input type="checkbox" class="toggle toggle-primary toggle-sm" v-model="config.settings.showComment" />
             </div>
+            -->
             <div class="flex items-center justify-between gap-4 p-2 rounded-box hover:bg-base-100/10 transition-colors duration-200">
               <div class="min-w-0 flex flex-col gap-0.5">
                 <div>{{ $t('settings.image_view.external_image_editor') }}</div>
@@ -536,9 +537,9 @@ watch(() => config.settings.showToolTip, (newValue) => {
 watch(() => config.settings.showStatusBar, (newValue) => {
   emit('settings-showStatusBar-changed', newValue);
 });
-watch(() => config.settings.showComment, (newValue) => {
-  emit('settings-showComment-changed', newValue);
-});
+// watch(() => config.settings.showComment, (newValue) => {
+//   emit('settings-showComment-changed', newValue);
+// });
 watch(() => config.settings.debugMode, (newValue) => {
   emit('settings-debugMode-changed', newValue);
 });

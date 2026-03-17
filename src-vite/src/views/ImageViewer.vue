@@ -48,13 +48,14 @@
           @slideshow-next="handleSlideshowNext"
         />
 
-        <!-- comments -->
+        <!--
         <div v-if="config.settings.showComment && fileInfo?.comments?.length > 0" 
           class="absolute flex m-2 p-2 bottom-0 left-0 right-0 text-sm bg-base-100/30 rounded-box select-text" 
         >
           <IconComment class="t-icon-size-sm shrink-0 mr-2"></IconComment>
           {{ fileInfo?.comments }}
         </div>
+        -->
       </template>
 
       <template v-else-if="isSplit && fileIndex >= 0">
@@ -130,12 +131,14 @@
                 @close="closeWindow"
                 @slideshow-next="handleSlideshowNext"
               />
+              <!--
               <div v-if="config.settings.showComment && fileInfo?.comments?.length > 0" 
                 class="absolute flex m-2 p-2 bottom-0 left-0 right-0 text-sm bg-base-100/30 rounded-box select-text"
               >
                 <IconComment class="t-icon-size-sm shrink-0 mr-2"></IconComment>
                 {{ fileInfo?.comments }}
               </div>
+              -->
             </div>
 
             <div
@@ -175,12 +178,14 @@
                 @close="closeWindow"
                 @slideshow-next="handleSlideshowNext"
               />
+              <!--
               <div v-if="config.settings.showComment && rightFileInfo?.comments?.length > 0" 
                 class="absolute flex m-2 p-2 bottom-0 left-0 right-0 text-sm bg-base-100/30 rounded-box select-text"
               >
                 <IconComment class="t-icon-size-sm shrink-0 mr-2"></IconComment>
                 {{ rightFileInfo?.comments }}
               </div>
+              -->
             </div>
           </div>
         </div>

@@ -115,7 +115,7 @@ export const useConfigStore = defineStore('configStore', {
       navigatorViewMode: 0,      // 0: Auto, 1: Always hide, 2: Always show
       navigatorViewSize: 240,    // navigator view size (160, 240, 320, 400)
       autoPlayVideo: true,       // auto play video
-      showComment: true,         // show comment
+      // showComment: false,        // show comment
       externalImageEditorPath: '', // external image editor app path
       externalVideoAppPath: '',    // external video app path
 
@@ -233,9 +233,9 @@ export const useConfigStore = defineStore('configStore', {
     setNavigatorViewSize(navigatorViewSize) {
       this.settings.navigatorViewSize = navigatorViewSize;
     },
-    setShowComment(showComment) {
-      this.settings.showComment = showComment;
-    },
+    // setShowComment(showComment) {
+    //   this.settings.showComment = showComment;
+    // },
     // image search settings
     setImageSearchThresholdIndex(imageSearchThresholdIndex) {
       this.settings.imageSearch.thresholdIndex = imageSearchThresholdIndex;
