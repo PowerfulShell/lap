@@ -6,9 +6,10 @@
 pub const NORMAL_IMGS: &[&str] = &[
     "jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "webp", "avif", "heic", "heif",
 ];
-pub const RAW_IMGS: &[&str] = &[
-    "cr2", "cr3", "nef", "nrw", "arw", "srf", "sr2", "raf", "rw2", "orf", "pef", "dng",
-];
+// Temporarily disabled RAW support.
+// pub const RAW_IMGS: &[&str] = &[
+//     "cr2", "cr3", "nef", "nrw", "arw", "srf", "sr2", "raf", "rw2", "orf", "pef", "dng",
+// ];
 pub const VIDEOS: &[&str] = &[
     "mpg", "mpeg", "mp4", "mkv", "avi", "mov", "webm", "flv", "wmv", "3gp", "m4v", "hevc", "asf",
     "mts", "m2ts", "mod", "tod", "ts",

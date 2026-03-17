@@ -17,6 +17,7 @@ use crate::{t_ai, t_sqlite};
 use base64::{Engine, engine::general_purpose};
 use std::collections::HashMap;
 use std::path::Path;
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tauri::State;
 
@@ -277,6 +278,39 @@ pub fn reveal_folder(folder_path: &str) -> Result<(), String> {
 #[tauri::command]
 pub fn open_external_url(url: &str) -> Result<(), String> {
     opener::open(url).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_external_app_display_name(app_path: &str) -> Result<String, String> {
+    t_utils::get_external_app_display_name(app_path)
+}
+
+/// open a file with a specific external application
+#[tauri::command]
+pub fn open_file_with_app(file_path: &str, app_path: &str) -> Result<(), String> {
+    if file_path.is_empty() || app_path.is_empty() {
+        return Err("Missing file path or app path".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-a")
+            .arg(app_path)
+            .arg(file_path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Command::new(app_path)
+            .arg(file_path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 // file

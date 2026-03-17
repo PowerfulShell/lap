@@ -116,8 +116,10 @@ export const useConfigStore = defineStore('configStore', {
       navigatorViewSize: 240,    // navigator view size (160, 240, 320, 400)
       autoPlayVideo: true,       // auto play video
       // showComment: false,        // show comment
-      externalImageEditorPath: '', // external image editor app path
+      externalImageAppPath: '',    // external image app path
+      externalImageAppName: '',    // external image app display name
       externalVideoAppPath: '',    // external video app path
+      externalVideoAppName: '',    // external video app display name
 
       // image search settings
       imageSearch: {
@@ -158,11 +160,17 @@ export const useConfigStore = defineStore('configStore', {
     setScale(scale) {
       this.settings.scale = scale;
     },
-    setExternalImageEditorPath(externalImageEditorPath) {
-      this.settings.externalImageEditorPath = externalImageEditorPath;
+    setExternalImageAppPath(externalImageAppPath) {
+      this.settings.externalImageAppPath = externalImageAppPath;
+    },
+    setExternalImageAppName(externalImageAppName) {
+      this.settings.externalImageAppName = externalImageAppName;
     },
     setExternalVideoAppPath(externalVideoAppPath) {
       this.settings.externalVideoAppPath = externalVideoAppPath;
+    },
+    setExternalVideoAppName(externalVideoAppName) {
+      this.settings.externalVideoAppName = externalVideoAppName;
     },
     setLanguage(language) {
       this.settings.language = language;

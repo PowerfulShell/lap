@@ -162,6 +162,8 @@ fn main() {
             t_cmds::delete_folder,
             t_cmds::reveal_folder,
             t_cmds::open_external_url,
+            t_cmds::get_external_app_display_name,
+            t_cmds::open_file_with_app,
             // file
             t_cmds::get_total_count_and_sum,
             t_cmds::get_query_count_and_sum,

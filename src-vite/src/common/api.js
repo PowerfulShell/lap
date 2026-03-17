@@ -243,6 +243,27 @@ export async function openExternalUrl(url) {
   }
 }
 
+// open a file with a specific external app
+export async function openFileWithApp(filePath, appPath) {
+  try {
+    await invoke('open_file_with_app', { filePath, appPath });
+    return true;
+  } catch (error) {
+    console.error('Failed to open file with app:', error);
+    throw error;
+  }
+}
+
+// get external app display name from platform metadata
+export async function getExternalAppDisplayName(appPath) {
+  try {
+    return await invoke('get_external_app_display_name', { appPath });
+  } catch (error) {
+    console.error('Failed to get external app display name:', error);
+    throw error;
+  }
+}
+
 // set display order 
 export async function setDisplayOrder(albumId, order) {
   try {

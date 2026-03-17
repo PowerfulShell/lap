@@ -71,11 +71,17 @@ listen('settings-darkTheme-changed', (event) => {
 listen('settings-scale-changed', (event) => {
   config.setScale(event.payload)
 })
-listen('settings-externalImageEditorPath-changed', (event) => {
-  config.setExternalImageEditorPath(event.payload)
+listen('settings-externalImageAppPath-changed', (event) => {
+  config.setExternalImageAppPath(event.payload)
+})
+listen('settings-externalImageAppName-changed', (event) => {
+  config.setExternalImageAppName(event.payload)
 })
 listen('settings-externalVideoAppPath-changed', (event) => {
   config.setExternalVideoAppPath(event.payload)
+})
+listen('settings-externalVideoAppName-changed', (event) => {
+  config.setExternalVideoAppName(event.payload)
 })
 listen('settings-language-changed', (event) => {
   config.setLanguage(event.payload)

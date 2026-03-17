@@ -200,8 +200,8 @@
             <div class="flex items-center justify-between gap-4 p-2 rounded-box hover:bg-base-100/10 transition-colors duration-200">
               <div class="min-w-0 flex flex-col gap-0.5">
                 <div>{{ $t('settings.image_view.external_image_editor') }}</div>
-                <div class="text-xs text-base-content/30 truncate" :title="config.settings.externalImageEditorPath || ''">
-                  {{ externalImageEditorName }}
+                <div class="text-xs text-base-content/30 truncate" :title="config.settings.externalImageAppPath || ''">
+                  {{ externalImageAppName }}
                 </div>
               </div>
               <div class="shrink-0 flex items-center gap-2">
@@ -210,7 +210,7 @@
                 </button>
                 <button
                   class="btn btn-sm btn-ghost"
-                  :disabled="!config.settings.externalImageEditorPath"
+                  :disabled="!config.settings.externalImageAppPath"
                   @click="clearExternalApp('image')"
                 >
                   {{ $t('settings.image_view.clear_app') }}
@@ -301,6 +301,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { debounce } from 'lodash';
 import { useI18n } from 'vue-i18n';
 import { config } from '@/common/config';
+import { getExternalAppDisplayName } from '@/common/api';
 import { isMac, setTheme, getSlideShowInterval } from '@/common/utils';
 
 import TitleBar from '@/components/TitleBar.vue';
@@ -364,20 +365,12 @@ const scaleOptions = computed(() => {
   }));
 });
 
-function formatExternalAppName(path: string) {
-  if (!path) return localeMsg.value.settings.image_view.external_app_not_selected;
-
-  const normalized = path.replace(/\\/g, '/');
-  const name = normalized.split('/').pop() || path;
-  return isMac && name.endsWith('.app') ? name.slice(0, -4) : name;
-}
-
-const externalImageEditorName = computed(() =>
-  formatExternalAppName(String(config.settings.externalImageEditorPath || ''))
+const externalImageAppName = computed(() =>
+  String(config.settings.externalImageAppName || '') || localeMsg.value.settings.image_view.external_app_not_selected
 );
 
 const externalVideoAppName = computed(() =>
-  formatExternalAppName(String(config.settings.externalVideoAppPath || ''))
+  String(config.settings.externalVideoAppName || '') || localeMsg.value.settings.image_view.external_app_not_selected
 );
 
 // Define the wheel options using computed to react to language changes
@@ -490,6 +483,22 @@ const faceClusterOptions = computed(() => {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown);
+
+  if (config.settings.externalImageAppPath) {
+    try {
+      config.settings.externalImageAppName = await getExternalAppDisplayName(config.settings.externalImageAppPath);
+    } catch {
+      config.settings.externalImageAppName = '';
+    }
+  }
+
+  if (config.settings.externalVideoAppPath) {
+    try {
+      config.settings.externalVideoAppName = await getExternalAppDisplayName(config.settings.externalVideoAppPath);
+    } catch {
+      config.settings.externalVideoAppName = '';
+    }
+  }
   
   // Show window after mount
   await appWindow.show();
@@ -518,11 +527,17 @@ watch(() => config.settings.darkTheme, (newValue) => {
 watch(() => config.settings.scale, (newValue) => {
   emit('settings-scale-changed', newValue);
 });
-watch(() => config.settings.externalImageEditorPath, (newValue) => {
-  emit('settings-externalImageEditorPath-changed', newValue);
+watch(() => config.settings.externalImageAppPath, (newValue) => {
+  emit('settings-externalImageAppPath-changed', newValue);
+});
+watch(() => config.settings.externalImageAppName, (newValue) => {
+  emit('settings-externalImageAppName-changed', newValue);
 });
 watch(() => config.settings.externalVideoAppPath, (newValue) => {
   emit('settings-externalVideoAppPath-changed', newValue);
+});
+watch(() => config.settings.externalVideoAppName, (newValue) => {
+  emit('settings-externalVideoAppName-changed', newValue);
 });
 watch(() => config.settings.language, (newValue) => {
   locale.value = newValue;
@@ -633,18 +648,27 @@ async function selectExternalApp(kind: 'image' | 'video') {
   });
 
   if (!result || Array.isArray(result)) return;
+  let displayName = '';
+  try {
+    displayName = await getExternalAppDisplayName(result);
+  } catch {}
+
   if (kind === 'image') {
-    config.settings.externalImageEditorPath = result;
+    config.settings.externalImageAppPath = result;
+    config.settings.externalImageAppName = displayName;
   } else {
     config.settings.externalVideoAppPath = result;
+    config.settings.externalVideoAppName = displayName;
   }
 }
 
 function clearExternalApp(kind: 'image' | 'video') {
   if (kind === 'image') {
-    config.settings.externalImageEditorPath = '';
+    config.settings.externalImageAppPath = '';
+    config.settings.externalImageAppName = '';
   } else {
     config.settings.externalVideoAppPath = '';
+    config.settings.externalVideoAppName = '';
   }
 }
 </script>

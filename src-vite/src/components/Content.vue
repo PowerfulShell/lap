@@ -550,6 +550,7 @@ import { getAlbum, getQueryCountAndSum, getQueryTimeLine, getQueryFiles, getFold
          setFileRotate, getFileHasTags, setFileFavorite, setFileRating, getTagsForFile, searchSimilarImages, generateEmbedding, 
          revealFolder, getTagName, indexAlbum, listenIndexProgress, listenIndexFinished, setAlbumCover,
          updateFileInfo, addFileToDb, cancelIndexing as cancelIndexingApi, getFacesForFile, listenFaceIndexProgress,
+         openFileWithApp,
          dedupGetGroup, dedupDeleteSelected, getQueryFilePosition } from '@/common/api';  
 import { config, libConfig } from '@/common/config';
 import { getSmartTagById, SMART_TAG_SEARCH_THRESHOLD } from '@/common/smartTags';
@@ -1247,6 +1248,9 @@ function handleItemAction(payload: { action: string, index: number }) {
     'edit': () => {
       editImageInitialTab.value = config.imageEditor.tab === 'adjust' ? 'adjust' : 'edit';
       showEditImage.value = true;
+    },
+    'open-external-app': () => {
+      void openSelectedFileInExternalApp();
     },
     'copy': () => clickCopyImage(fileList.value[selectedItemIndex.value].file_path),
     'rename': clickRename,
@@ -3317,6 +3321,24 @@ const clickCopyImage = async (filePath: string) => {
     } else {
       toolTipRef.value.showTip(localeMsg.value.tooltip.copy_image.failed, true);
     }
+  }
+}
+
+const openSelectedFileInExternalApp = async () => {
+  const file = fileList.value[selectedItemIndex.value];
+  if (!file?.file_path) return;
+
+  const isImageFile = file.file_type === 1 || file.file_type === 3;
+  const appPath = isImageFile
+    ? String(config.settings.externalImageAppPath || '')
+    : String(config.settings.externalVideoAppPath || '');
+
+  if (!appPath) return;
+
+  try {
+    await openFileWithApp(file.file_path, appPath);
+  } catch (error) {
+    console.error('Failed to open external app:', error);
   }
 }
 

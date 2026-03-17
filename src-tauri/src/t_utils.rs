@@ -13,6 +13,7 @@ use reverse_geocoder::ReverseGeocoder;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, State};
@@ -191,6 +192,151 @@ pub fn restore_album_scopes(app_handle: &tauri::AppHandle) -> Result<(), String>
     }
 
     Ok(())
+}
+
+fn normalize_external_app_name(name: &str) -> String {
+    let known_suffixes = [
+        ".appimage",
+        ".desktop",
+        ".bundle",
+        ".app",
+        ".exe",
+        ".lnk",
+        ".cmd",
+        ".bat",
+    ];
+
+    let trimmed_name = name.trim();
+    let lower_name = trimmed_name.to_lowercase();
+    for suffix in known_suffixes {
+        if lower_name.ends_with(suffix) {
+            let trimmed = &trimmed_name[..trimmed_name.len() - suffix.len()];
+            return trimmed.to_string();
+        }
+    }
+
+    trimmed_name.to_string()
+}
+
+fn fallback_external_app_name(app_path: &str) -> String {
+    let clean_path = app_path.trim().trim_end_matches(['/', '\\']);
+    let fallback = Path::new(clean_path)
+        .file_name()
+        .or_else(|| Path::new(clean_path).file_stem())
+        .and_then(|name| name.to_str())
+        .unwrap_or(clean_path);
+
+    normalize_external_app_name(fallback)
+}
+
+fn command_stdout(mut command: Command) -> Option<String> {
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if stdout.is_empty() || stdout == "(null)" {
+        None
+    } else {
+        Some(stdout)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn resolve_external_app_display_name(app_path: &str) -> Option<String> {
+    command_stdout({
+        let mut command = Command::new("mdls");
+        command.args(["-name", "kMDItemDisplayName", "-raw", app_path]);
+        command
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_external_app_display_name(app_path: &str) -> Option<String> {
+    let script = r#"
+$path = $env:LAP_APP_PATH
+if (-not $path) { exit 1 }
+
+function Get-ResolvedTarget([string]$candidate) {
+  if (-not $candidate) { return $null }
+  if ($candidate.ToLower().EndsWith('.lnk')) {
+    try {
+      $shell = New-Object -ComObject WScript.Shell
+      $shortcut = $shell.CreateShortcut($candidate)
+      if ($shortcut.TargetPath) { return $shortcut.TargetPath }
+    } catch {}
+  }
+  return $candidate
+}
+
+$candidate = Get-ResolvedTarget $path
+if (-not $candidate) { exit 1 }
+
+try {
+  $item = Get-Item -LiteralPath $candidate -ErrorAction Stop
+  $info = $item.VersionInfo
+  if ($info) {
+    if ($info.FileDescription) {
+      [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+      Write-Output $info.FileDescription
+      exit 0
+    }
+    if ($info.ProductName) {
+      [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+      Write-Output $info.ProductName
+      exit 0
+    }
+  }
+} catch {}
+
+exit 1
+"#;
+
+    command_stdout({
+        let mut command = Command::new("powershell");
+        command
+            .args(["-NoProfile", "-Command", script])
+            .env("LAP_APP_PATH", app_path);
+        command
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn resolve_external_app_display_name(app_path: &str) -> Option<String> {
+    let path = Path::new(app_path);
+    let lower_path = app_path.to_lowercase();
+    if lower_path.ends_with(".desktop") {
+        let desktop_file = fs::read_to_string(path).ok()?;
+        for line in desktop_file.lines() {
+            if let Some(name) = line.strip_prefix("Name=") {
+                let trimmed = name.trim();
+                if !trimmed.is_empty() {
+                    return Some(trimmed.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+fn resolve_external_app_display_name(_app_path: &str) -> Option<String> {
+    None
+}
+
+pub fn get_external_app_display_name(app_path: &str) -> Result<String, String> {
+    if app_path.trim().is_empty() {
+        return Err("Missing app path".to_string());
+    }
+
+    Ok(
+        resolve_external_app_display_name(app_path)
+            .filter(|name| !name.trim().is_empty())
+            .map(|name| normalize_external_app_name(&name))
+            .unwrap_or_else(|| fallback_external_app_name(app_path)),
+    )
 }
 
 /// create a new folder at a given path
@@ -620,15 +766,12 @@ pub fn get_file_extension(file_path: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// get file type by extension (1: image, 2: video, 3: raw)
+/// get file type by extension (1: image, 2: video)
 pub fn get_file_type(file_path: &str) -> Option<i64> {
     let ext = get_file_extension(file_path)?.to_lowercase();
 
     // Normal images
     let normal_imgs = t_common::NORMAL_IMGS;
-
-    // RAW formats
-    let raw_imgs = t_common::RAW_IMGS;
 
     // Video formats
     let videos = t_common::VIDEOS;
@@ -637,9 +780,10 @@ pub fn get_file_type(file_path: &str) -> Option<i64> {
         return Some(1);
     }
 
-    if raw_imgs.contains(&ext.as_str()) {
-        return Some(3);
-    }
+    // RAW support is temporarily disabled.
+    // if t_common::RAW_IMGS.contains(&ext.as_str()) {
+    //     return Some(3);
+    // }
 
     if videos.contains(&ext.as_str()) {
         return Some(2);

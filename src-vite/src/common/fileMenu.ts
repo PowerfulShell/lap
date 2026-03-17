@@ -7,7 +7,6 @@ import {
   IconStarFilled,
   IconTag,
   IconRotate,
-  IconInformation,
   IconCopy,
   IconRename,
   IconMoveTo,
@@ -15,10 +14,10 @@ import {
   IconTrash,
   IconComment,
   IconPhotoSearch,
-  IconFiles,
   IconFolderSearch,
   IconPersonSearch,
   IconImageEdit,
+  IconExternal,
 } from '@/common/icons';
 
 export const useFileMenuItems = (
@@ -33,6 +32,10 @@ export const useFileMenuItems = (
     if (!f) return [];
 
     const createAction = (actionName: string) => () => onAction(actionName);
+    const imageAppName = String(config.settings.externalImageAppName || '');
+    const videoAppName = String(config.settings.externalVideoAppName || '');
+    const isImage = f.file_type === 1 || f.file_type === 3;
+    const isVideo = f.file_type === 2;
 
     return [
       {
@@ -45,14 +48,14 @@ export const useFileMenuItems = (
         label: localeMsg.value.menu.file.find_similar_images,
         icon: markRaw(IconPhotoSearch),
         shortcut: isMac ? '⌘F' : 'Ctrl+F',
-        disabled: f.file_type !== 1 && f.file_type !== 3,
+        disabled: !isImage,
         action: createAction('search-similar')
       },
       {
         label: localeMsg.value.menu.file.find_person_images,
         icon: markRaw(IconPersonSearch),
         hidden: !config.settings.face.enabled,
-        disabled: !config.settings.face.enabled || (f.file_type !== 1 && f.file_type !== 3),
+        disabled: !config.settings.face.enabled || !isImage,
         action: createAction('find-person')
       },
       {
@@ -61,60 +64,27 @@ export const useFileMenuItems = (
         icon: markRaw(IconFolderSearch),
         action: createAction('album-folder')
       },
-      {
-        label: localeMsg.value.menu.file.set_album_cover,
-        action: createAction('set-album-cover')
-      },
-      {
-        label: "-",   // separator
-        action: () => { }
-      },
+      { label: "-", action: null },
       {
         label: localeMsg.value.menu.file.edit_image,
         icon: markRaw(IconImageEdit),
         shortcut: isMac ? '⌘E' : 'Ctrl+E',
-        disabled: f.file_type !== 1 && f.file_type !== 3,
+        disabled: !isImage,
         action: createAction('edit')
       },
       {
-        label: localeMsg.value.menu.file.copy,
-        icon: markRaw(IconCopy),
-        shortcut: isMac ? '⌘C' : 'Ctrl+C',
-        disabled: f.file_type !== 1 && f.file_type !== 3,
-        action: createAction('copy')
+        label: (localeMsg.value.menu.file.open_in_app || 'Open in {app}').replace('{app}', isVideo ? videoAppName : imageAppName),
+        hidden: !((isImage && imageAppName) || (isVideo && videoAppName)),
+        disabled: !((isImage && imageAppName) || (isVideo && videoAppName)),
+        icon: markRaw(IconExternal),
+        action: createAction('open-external-app')
       },
       {
-        label: localeMsg.value.menu.file.rename,
-        icon: markRaw(IconRename),
-        shortcut: isMac ? '⏎' : 'F2',
-        action: createAction('rename')
+        label: localeMsg.value.menu.meta.rotate,
+        icon: markRaw(IconRotate),
+        shortcut: 'R',
+        action: createAction('rotate')
       },
-      {
-        label: localeMsg.value.menu.file.move_to,
-        icon: markRaw(IconMoveTo),
-        action: createAction('move-to')
-      },
-      {
-        label: localeMsg.value.menu.file.copy_to,
-        // icon: markRaw(IconFiles),
-        action: createAction('copy-to')
-      },
-      {
-        label: isMac ? localeMsg.value.menu.file.reveal_in_finder : localeMsg.value.menu.file.reveal_in_file_explorer,
-        action: createAction('reveal')
-      },
-      {
-        label: isMac ? localeMsg.value.menu.file.move_to_trash : localeMsg.value.menu.file.delete,
-        icon: markRaw(IconTrash),
-        shortcut: isMac ? '⌘⌫' : 'Del',
-        action: createAction('trash')
-      },
-      // {
-      //   label: localeMsg.value.menu.file.show_info,
-      //   icon: markRaw(IconInformation),
-      //   shortcut: 'I',
-      //   action: createAction('info')
-      // },
       { label: "-", action: null },
       {
         label: f.is_favorite ? localeMsg.value.menu.meta.unfavorite : localeMsg.value.menu.meta.favorite,
@@ -152,7 +122,6 @@ export const useFileMenuItems = (
             shortcut: '3',
             action: createAction('rating-3')
           },
-
           {
             label: localeMsg.value.favorite.two_stars,
             icon: markRaw(Number(f.rating || 0) === 2 ? IconStarFilled : IconStar),
@@ -179,11 +148,43 @@ export const useFileMenuItems = (
         shortcut: 'C',
         action: createAction('comment')
       },
+      { label: "-", action: null },
       {
-        label: localeMsg.value.menu.meta.rotate,
-        icon: markRaw(IconRotate),
-        shortcut: 'R',
-        action: createAction('rotate')
+        label: localeMsg.value.menu.file.rename,
+        icon: markRaw(IconRename),
+        shortcut: isMac ? '⏎' : 'F2',
+        action: createAction('rename')
+      },
+      {
+        label: localeMsg.value.menu.file.copy,
+        icon: markRaw(IconCopy),
+        shortcut: isMac ? '⌘C' : 'Ctrl+C',
+        disabled: !isImage,
+        action: createAction('copy')
+      },
+      {
+        label: localeMsg.value.menu.file.move_to,
+        icon: markRaw(IconMoveTo),
+        action: createAction('move-to')
+      },
+      {
+        label: localeMsg.value.menu.file.copy_to,
+        action: createAction('copy-to')
+      },
+      {
+        label: isMac ? localeMsg.value.menu.file.reveal_in_finder : localeMsg.value.menu.file.reveal_in_file_explorer,
+        action: createAction('reveal')
+      },
+      {
+        label: localeMsg.value.menu.file.set_album_cover,
+        action: createAction('set-album-cover')
+      },
+      { label: "-", action: null },
+      {
+        label: isMac ? localeMsg.value.menu.file.move_to_trash : localeMsg.value.menu.file.delete,
+        icon: markRaw(IconTrash),
+        shortcut: isMac ? '⌘⌫' : 'Del',
+        action: createAction('trash')
       },
     ];
   });
