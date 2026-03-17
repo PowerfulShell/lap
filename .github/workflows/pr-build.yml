@@ -123,7 +123,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: .
-          args: --target aarch64-apple-darwin --verbose --bundles app,dmg --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          args: --target aarch64-apple-darwin --verbose --bundles dmg --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Verify ffmpeg configure flags
         shell: bash
@@ -184,6 +184,4 @@ jobs:
           name: lap-pr-macos-aarch64-${{ github.event.pull_request.number || github.run_number }}
           path: |
             src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
