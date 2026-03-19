@@ -19,12 +19,14 @@ It is built as a privacy-focused alternative to cloud photo services: no forced 
 
 ## Download Lap
 
-| Platform | Download | Notes |
+Open the [latest release page](https://github.com/julyx10/lap/releases/latest), then download the file that matches your system:
+
+| Platform | Package | Status |
 | :-- | :-- | :-- |
-| **macOS (Apple Silicon)** | [Download .dmg (aarch64)](https://github.com/julyx10/lap/releases/latest) | Notarized by Apple, fully tested |
-| **macOS (Intel)** | [Download .dmg (x64)](https://github.com/julyx10/lap/releases/latest) | Notarized by Apple, not fully tested yet |
-| **Linux (Ubuntu/Debian)** | [Download .deb (amd64)](https://github.com/julyx10/lap/releases/latest) | Community testing welcome |
-| **Windows (x64)** | [Download .msi](https://github.com/julyx10/lap/releases/latest) | Tested on Windows 11 |
+| **macOS (Apple Silicon)** | `aarch64.dmg` | Notarized by Apple |
+| **macOS (Intel)** | `x64.dmg` | Notarized by Apple |
+| **Windows 10/11 (x64)** | `.msi` | Currently unsigned (SmartScreen warning may appear) |
+| **Ubuntu/Debian (amd64)** | `amd64.deb` | Linux adaptation and testing are not completed yet |
 
 ## Screenshots
 
