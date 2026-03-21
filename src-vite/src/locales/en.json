@@ -695,7 +695,7 @@
     "date_time_long": "MMMM do, yyyy HH:mm:ss"
   },
   "print_view": {
-    "title": "Print",
+    "title": "Print...",
     "loading": "Loading preview...",
     "load_failed": "Failed to load image for printing."
   },

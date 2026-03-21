@@ -34,6 +34,7 @@
               <div class="flex items-center justify-between px-1 rounded-box hover:bg-base-100/10 transition-colors duration-200">
                 <div class="flex flex-col gap-0.5 text-sm leading-5">
                   <div>{{ $t('settings.general.select_language') }}</div>
+                  <div v-if="config.settings.language !== 'en'" class="text-xs text-base-content/30">Select language</div>
                 </div>
                 <select class="select  select-bordered select-sm min-w-32" v-model="config.settings.language">
                   <option v-for="(lang, index) in languages" :key="index" :value="lang.value">{{ lang.label }}</option>
@@ -334,15 +335,15 @@ const SETTINGS_BASE_WIDTH = 600;
 const SETTINGS_BASE_HEIGHT = 450;
 
 const languages = [
-  { label: 'Deutsch', value: 'de' },
   { label: 'English', value: 'en' },
+  { label: 'Deutsch', value: 'de' },
   { label: 'Español', value: 'es' },
   { label: 'Français', value: 'fr' },
   { label: 'Português', value: 'pt' },
   { label: 'Русский', value: 'ru' },
-  { label: '中文',    value: 'zh' },
-  { label: '日本語',   value: 'ja' },
-  { label: '한국어',   value: 'ko' },
+  { label: '中文', value: 'zh' },
+  { label: '日本語', value: 'ja' },
+  { label: '한국어', value: 'ko' },
 ];
 
 const appearanceOptions = computed(() => {

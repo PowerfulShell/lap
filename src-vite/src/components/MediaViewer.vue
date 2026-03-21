@@ -239,7 +239,7 @@
       v-if="showStatusBadges && quickViewStatusBadges.length > 0"
       :class="[
         'pointer-events-none absolute left-2 z-90 flex max-w-[calc(100%-4rem)] flex-wrap gap-1',
-        config.mediaViewer.isPinned || isFullScreen ? 'top-12' : 'top-2',
+        props.mode === 2 || config.mediaViewer.isPinned || isFullScreen ? 'top-12' : 'top-2',
       ]"
     >
       <div

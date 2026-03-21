@@ -695,7 +695,7 @@
     "date_time_long": "yyyy年M月d日 HH:mm:ss"
   },
   "print_view": {
-    "title": "打印",
+    "title": "打印...",
     "loading": "正在加载预览...",
     "load_failed": "无法加载用于打印的图片。"
   },

@@ -2,9 +2,9 @@
   <div class="print-view w-screen h-screen flex flex-col overflow-hidden bg-base-300 text-base-content/70">
     <TitleBar :titlebar="windowTitle" :resizable="false" viewName="Print" class="print-ui shrink-0 z-50" />
 
-    <div class="print-ui flex-1 overflow-auto p-2">
-      <div class="min-h-full flex items-center justify-center">
-        <div v-if="isLoading" class="flex flex-col items-center gap-3 text-base-content/40">
+    <div class="print-ui flex-1 overflow-hidden px-3">
+      <div class="h-full flex items-center justify-center">
+        <div v-if="isLoading" class="flex flex-col items-center gap-3 text-base-content/30">
           <span class="loading loading-dots text-primary"></span>
           <span class="text-sm">{{ $t('print_view.loading') }}</span>
         </div>
@@ -13,14 +13,16 @@
           {{ $t('print_view.load_failed') }}
         </div>
 
-        <div v-else class="w-full flex items-center justify-center">
-          <div class="relative w-full max-w-[1100px] min-h-[360px] rounded-box overflow-hidden border border-base-content/5 bg-base-300/30 shadow-sm cursor-default flex items-center justify-center">
-            <img
-              v-if="imageSrc"
-              :src="imageSrc"
-              class="block w-full h-full max-h-[calc(100vh-9rem)] object-contain"
-              @error="handleImageError"
-            />
+        <div v-else class="w-full h-full flex items-center justify-center">
+          <div class="relative w-full h-full rounded-box overflow-hidden border border-base-content/5 bg-base-300/30 shadow-sm cursor-default">
+            <div class="w-full h-full p-2 flex items-center justify-center">
+              <img
+                v-if="imageSrc"
+                :src="imageSrc"
+                class="block w-full h-full object-contain"
+                @error="handleImageError"
+              />
+            </div>
           </div>
         </div>
       </div>
