@@ -1,0 +1,6 @@
+[submodule "src-tauri/third_party/LibRaw"]
+	path = src-tauri/third_party/LibRaw
+	url = https://github.com/LibRaw/LibRaw.git
+[submodule "src-tauri/third_party/libjpeg-turbo"]
+	path = src-tauri/third_party/libjpeg-turbo
+	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git

@@ -1,3 +1,4 @@
+use crate::t_libraw;
 /**
  * Image processing utilities.
  * project: Lap
@@ -12,10 +13,9 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Cursor;
+use std::panic;
 use std::path::Path;
 use std::process::Command;
-use crate::t_raw;
-use std::panic;
 
 /// Quick probing of image dimensions without loading the entire file
 pub fn get_image_dimensions(file_path: &str) -> Result<(u32, u32), String> {
@@ -27,8 +27,9 @@ pub fn get_image_dimensions(file_path: &str) -> Result<(u32, u32), String> {
             let width = dimensions.width as u32;
             let height = dimensions.height as u32;
 
-            if crate::t_raw::is_tiff_path(file_path) {
-                if let Ok((raw_width, raw_height)) = crate::t_raw::get_raw_dimensions(file_path) {
+            if crate::t_libraw::is_tiff_path(file_path) {
+                if let Ok((raw_width, raw_height)) = crate::t_libraw::get_raw_dimensions(file_path)
+                {
                     if raw_width > width || raw_height > height {
                         return Ok((raw_width, raw_height));
                     }
@@ -95,16 +96,27 @@ pub fn get_image_orientation(file_path: &str) -> i32 {
         .unwrap_or(1)
 }
 
+fn apply_orientation(img: DynamicImage, orientation: i32) -> DynamicImage {
+    match orientation {
+        2 => img.fliph(),
+        3 => img.rotate180(),
+        4 => img.flipv(),
+        5 => img.rotate90().fliph(),
+        6 => img.rotate90(),
+        7 => img.rotate270().fliph(),
+        8 => img.rotate270(),
+        _ => img,
+    }
+}
+
 /// Get a thumbnail from an image file path
 pub fn get_image_thumbnail(
     file_path: &str,
     orientation: i32,
     thumbnail_size: u32,
 ) -> Result<Option<Vec<u8>>, String> {
-    if crate::t_raw::is_tiff_path(file_path) {
-        if let Ok(Some(data)) =
-            crate::t_raw::get_raw_thumbnail(file_path, orientation, thumbnail_size)
-        {
+    if crate::t_libraw::is_tiff_path(file_path) {
+        if let Ok(Some(data)) = crate::t_libraw::get_raw_thumbnail(file_path, thumbnail_size) {
             return Ok(Some(data));
         }
     }
@@ -120,12 +132,7 @@ pub fn get_image_thumbnail(
         let thumbnail = img.thumbnail(u32::MAX, thumbnail_size);
 
         // Adjust the image orientation based on the EXIF orientation value
-        let adjusted_thumbnail = match orientation {
-            3 => thumbnail.rotate180(),
-            6 => thumbnail.rotate90(),
-            8 => thumbnail.rotate270(),
-            _ => thumbnail,
-        };
+        let adjusted_thumbnail = apply_orientation(thumbnail, orientation);
 
         // Determine output format based on input format
         let output_format = if img_format == ImageFormat::Png {
@@ -181,6 +188,8 @@ pub fn get_image_thumbnail(
 #[derive(Debug)]
 struct EmbeddedJpegCandidate {
     data: Vec<u8>,
+    width: u32,
+    height: u32,
     max_edge: u32,
 }
 
@@ -223,10 +232,10 @@ fn collect_embedded_jpeg_candidates(file_path: &str) -> Result<Vec<EmbeddedJpegC
         }
 
         let data = candidate.to_vec();
-        let max_edge = match image::load_from_memory(&data) {
+        let (width, height, max_edge) = match image::load_from_memory(&data) {
             Ok(image) => {
                 let (width, height) = image.dimensions();
-                width.max(height)
+                (width, height, width.max(height))
             }
             Err(_) => continue,
         };
@@ -235,7 +244,12 @@ fn collect_embedded_jpeg_candidates(file_path: &str) -> Result<Vec<EmbeddedJpegC
             continue;
         }
 
-        candidates.push(EmbeddedJpegCandidate { data, max_edge });
+        candidates.push(EmbeddedJpegCandidate {
+            data,
+            width,
+            height,
+            max_edge,
+        });
     }
 
     Ok(candidates)
@@ -243,9 +257,19 @@ fn collect_embedded_jpeg_candidates(file_path: &str) -> Result<Vec<EmbeddedJpegC
 
 fn select_embedded_jpeg_for_preview(file_path: &str) -> Result<Option<Vec<u8>>, String> {
     let candidates = collect_embedded_jpeg_candidates(file_path)?;
+    let (raw_width, raw_height) = t_libraw::get_raw_dimensions(file_path)?;
     let mut selected: Option<EmbeddedJpegCandidate> = None;
 
     for candidate in candidates {
+        let width_delta = candidate.width.abs_diff(raw_width);
+        let height_delta = candidate.height.abs_diff(raw_height);
+        let is_fullsize = width_delta.saturating_mul(100) <= raw_width.max(1)
+            && height_delta.saturating_mul(100) <= raw_height.max(1);
+
+        if !is_fullsize {
+            continue;
+        }
+
         match &selected {
             Some(best) if candidate.max_edge <= best.max_edge => {}
             _ => selected = Some(candidate),
@@ -284,26 +308,30 @@ fn select_embedded_jpeg_for_thumbnail(
     Ok(best_not_smaller.or(best_smaller).map(|item| item.data))
 }
 
-pub fn get_raw_preview_image(file_path: &str) -> Result<Option<Vec<u8>>, String> {
-    let orientation = get_image_orientation(file_path);
+fn get_jpeg_orientation_from_bytes(data: &[u8]) -> i32 {
+    let mut reader = Cursor::new(data);
+    let exif = match Reader::new().read_from_container(&mut reader) {
+        Ok(exif) => exif,
+        Err(_) => return 1,
+    };
 
-    if let Ok(Some(data)) = t_raw::get_raw_preview_image(file_path, orientation) {
+    exif.get_field(Tag::Orientation, In::PRIMARY)
+        .and_then(|field| field.value.get_uint(0))
+        .map(|value| value as i32)
+        .unwrap_or(1)
+}
+
+pub fn get_raw_preview_image(file_path: &str) -> Result<Option<Vec<u8>>, String> {
+    // Primary: LibRaw handles extraction and rotation
+    if let Ok(Some(data)) = t_libraw::get_raw_preview_image(file_path) {
         return Ok(Some(data));
     }
 
+    // Fallback: EXIF-based embedded JPEG extraction
     if let Ok(Some(preview)) = select_embedded_jpeg_for_preview(file_path) {
         let image = image::load_from_memory(&preview)
             .map_err(|e| format!("Failed to decode embedded RAW preview: {}", e))?;
-        let image = match orientation {
-            2 => image.fliph(),
-            3 => image.rotate180(),
-            4 => image.flipv(),
-            5 => image.rotate90().fliph(),
-            6 => image.rotate90(),
-            7 => image.rotate270().fliph(),
-            8 => image.rotate270(),
-            _ => image,
-        };
+        let image = apply_orientation(image, get_jpeg_orientation_from_bytes(&preview));
         let mut buf = Vec::new();
         image
             .to_rgb8()
@@ -317,14 +345,10 @@ pub fn get_raw_preview_image(file_path: &str) -> Result<Option<Vec<u8>>, String>
         return Ok(Some(data));
     }
 
+    let orientation = get_image_orientation(file_path);
+
     // Final fallback for formats that can be decoded directly by `image`.
     if let Ok(Some(data)) = get_image_thumbnail(file_path, orientation, 4096) {
-        return Ok(Some(data));
-    }
-
-    // Final safety net for RAW formats whose large preview cannot be extracted
-    // directly, but where we can still synthesize a large JPEG on demand.
-    if let Ok(Some(data)) = get_raw_thumbnail(file_path, orientation, 4096) {
         return Ok(Some(data));
     }
 
@@ -332,7 +356,7 @@ pub fn get_raw_preview_image(file_path: &str) -> Result<Option<Vec<u8>>, String>
 }
 
 pub fn get_raw_dimensions(file_path: &str) -> Result<(u32, u32), String> {
-    if let Ok((width, height)) = t_raw::get_raw_dimensions(file_path) {
+    if let Ok((width, height)) = t_libraw::get_raw_dimensions(file_path) {
         if width > 0 && height > 0 {
             return Ok((width, height));
         }
@@ -367,21 +391,18 @@ pub fn get_raw_thumbnail(
     orientation: i32,
     thumbnail_size: u32,
 ) -> Result<Option<Vec<u8>>, String> {
-    if let Ok(Some(data)) = t_raw::get_raw_thumbnail(file_path, orientation, thumbnail_size) {
+    // Primary: LibRaw handles extraction and rotation
+    if let Ok(Some(data)) = t_libraw::get_raw_thumbnail(file_path, thumbnail_size) {
         return Ok(Some(data));
     }
 
+    // Fallback: EXIF-based embedded JPEG extraction
     if let Ok(Some(preview)) = select_embedded_jpeg_for_thumbnail(file_path, thumbnail_size) {
         let img = image::load_from_memory(&preview)
             .map_err(|e| format!("Failed to decode RAW preview image: {}", e))?;
         let thumbnail = img.thumbnail(u32::MAX, thumbnail_size);
-
-        let adjusted_thumbnail = match orientation {
-            3 => thumbnail.rotate180(),
-            6 => thumbnail.rotate90(),
-            8 => thumbnail.rotate270(),
-            _ => thumbnail,
-        };
+        let adjusted_thumbnail =
+            apply_orientation(thumbnail, get_jpeg_orientation_from_bytes(&preview));
 
         let rgb_image = adjusted_thumbnail.to_rgb8();
         let mut buf = Vec::new();
@@ -503,12 +524,7 @@ fn get_edited_image(params: &EditParams) -> Result<DynamicImage, String> {
     let mut img = image::open(path).map_err(|e| e.to_string())?;
 
     // orientaion adjustment based on exif orientation value
-    img = match params.orientation {
-        3 => img.rotate180(),
-        6 => img.rotate90(),
-        8 => img.rotate270(),
-        _ => img,
-    };
+    img = apply_orientation(img, params.orientation);
 
     // 1. Flip
     if params.flip_horizontal {

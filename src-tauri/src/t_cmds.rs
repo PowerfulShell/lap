@@ -533,7 +533,7 @@ pub async fn get_file_image(file_path: String) -> Result<String, String> {
     let image_data = if file_type == 3 {
         t_image::get_raw_preview_image(&file_path)?
             .ok_or_else(|| format!("Failed to resolve RAW preview image: {}", file_path))?
-    } else if crate::t_raw::is_tiff_path(&file_path) {
+    } else if crate::t_libraw::is_tiff_path(&file_path) {
         match t_image::get_raw_preview_image(&file_path) {
             Ok(Some(data)) => data,
             _ => tokio::fs::read(&file_path)

@@ -11,6 +11,7 @@ license = "GPL-3.0-or-later"
 build = "build.rs"
 
 [build-dependencies]
+cc = "1"
 tauri-build = { version = "2", features = [] }
 
 [profile.release]
@@ -59,7 +60,6 @@ ndarray = "0.16"
 tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
 uuid = { version = "1", features = ["v4"] }
 blake3 = "1.8.3"
-rsraw = "0.1.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 ffmpeg-next = { version = "8.0.0" }

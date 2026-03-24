@@ -9,6 +9,7 @@ dependencies = [
  "arboard",
  "base64 0.22.1",
  "blake3",
+ "cc",
  "chrono",
  "dirs 5.0.1",
  "ffmpeg-next",
@@ -23,7 +24,6 @@ dependencies = [
  "pinyin",
  "rand 0.8.5",
  "reverse_geocoder",
- "rsraw",
  "rusqlite",
  "serde",
  "serde_json",
@@ -254,24 +254,6 @@ name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
-
-[[package]]
-name = "bindgen"
-version = "0.71.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f58bf3d7db68cfbac37cfc485a8d711e87e064c3d0fe0435b92f7a407f9d6b3"
-dependencies = [
- "bitflags 2.10.0",
- "cexpr",
- "clang-sys",
- "itertools 0.13.0",
- "proc-macro2",
- "quote",
- "regex",
- "rustc-hash",
- "shlex",
- "syn 2.0.114",
-]
 
 [[package]]
 name = "bindgen"
@@ -1344,7 +1326,7 @@ version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9bca20aa4ee774fe384c2490096c122b0b23cf524a9910add0686691003d797b"
 dependencies = [
- "bindgen 0.72.1",
+ "bindgen",
  "cc",
  "libc",
  "num_cpus",
@@ -4355,29 +4337,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rsraw"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7acdab9c3e6b06df2277acf1b970ef7cc03a9f7c9b48073eb642294addf15af"
-dependencies = [
- "chrono",
- "rsraw-sys",
- "serde",
- "tracing",
-]
-
-[[package]]
-name = "rsraw-sys"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a139fcd166bbf7aead0ccd795ba782ab508fddb95fbd6fa62ea794947a649085"
-dependencies = [
- "bindgen 0.71.1",
- "cc",
- "libc",
 ]
 
 [[package]]

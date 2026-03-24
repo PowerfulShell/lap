@@ -163,7 +163,7 @@ impl Album {
     pub fn get_all_albums() -> Result<Vec<Self>, String> {
         let conn = open_conn()?;
 
-        let query = 
+        let query =
             "SELECT id, name, path, created_at, modified_at, display_order_id, cover_file_id, description, indexed, total
             FROM albums
             ORDER BY display_order_id ASC";

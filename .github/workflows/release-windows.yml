@@ -83,6 +83,20 @@ jobs:
         with:
           arch: x64
 
+      - name: Extract LibRaw Windows package
+        shell: pwsh
+        run: |
+          $zipPath = "src-tauri/resources/libraw/LibRaw-0.22.0-Win64.zip"
+          $destDir = "src-tauri/resources/libraw/windows"
+          if (-not (Test-Path $zipPath)) {
+            throw "LibRaw archive not found: $zipPath"
+          }
+          if (Test-Path $destDir) {
+            Remove-Item $destDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+          Expand-Archive -Path $zipPath -DestinationPath $destDir -Force
+
       - name: Build FFmpeg with vcpkg (Windows dynamic)
         shell: pwsh
         run: |

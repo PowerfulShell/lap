@@ -56,6 +56,7 @@ Open the [latest release page](https://github.com/julyx10/lap/releases/latest), 
 - **Edit in place** with crop, rotate, flip, resize, and basic adjustments.
 - **Keep folders in sync** with filesystem-aware operations and refresh support.
 - **Use local search tools** such as text/image search, similar-image search, face clustering, and smart tags.
+- **View RAW photos** with built-in decoding for 20+ camera RAW formats (CR2, NEF, ARW, DNG, etc.).
 
 ## Planned Features
 
@@ -64,23 +65,22 @@ Open the [latest release page](https://github.com/julyx10/lap/releases/latest), 
 
 ## Build from Source
 
-Requirements:
-- Node.js 20+, pnpm 8+
-- Rust stable
-- macOS: `xcode-select --install`, `brew install nasm pkg-config`
-- Linux: `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf nasm clang pkg-config`
-
-Run locally:
+Requirements: Node.js 20+, pnpm, Rust stable.
 
 ```bash
-# Download AI models
-./scripts/download_models.sh
-# Windows (PowerShell): .\scripts\download_models.ps1
+# macOS system deps
+xcode-select --install
+brew install nasm pkg-config autoconf automake libtool
 
-# Install frontend deps
+# Linux system deps (Ubuntu/Debian)
+# sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+#   patchelf nasm clang pkg-config autoconf automake libtool
+
+# Clone and build
+git clone --recursive https://github.com/julyx10/lap.git
+cd lap
+./scripts/download_models.sh            # Windows: .\scripts\download_models.ps1
 cd src-vite && pnpm install && cd ..
-
-# Run dev app
 cargo tauri dev
 ```
 
@@ -94,10 +94,22 @@ cargo tauri dev
 
 ## Architecture
 
-- Core: [Tauri 2](https://tauri.app/) + Rust
-- Frontend: Vue 3 + Vite
+- Core: Tauri + Rust
+- Frontend: Vue + Vite + Tailwind CSS
 - Data: SQLite
-- Media and local search: CLIP, InsightFace, FFmpeg
+
+### Key Libraries
+
+| Library | Purpose |
+| :-- | :-- |
+| [LibRaw](https://github.com/LibRaw/LibRaw) | RAW image decoding and thumbnail extraction |
+| [FFmpeg](https://ffmpeg.org/) | Video decoding and thumbnail generation |
+| [ONNX Runtime](https://onnxruntime.ai/) | Local AI model inference engine |
+| [CLIP](https://github.com/openai/CLIP) | Image-text similarity search |
+| [InsightFace](https://github.com/deepinsight/insightface) | Face detection and recognition |
+| [Leaflet](https://leafletjs.com/) | Interactive map for geotagged photos |
+| [Video.js](https://videojs.com/) | Video playback |
+| [daisyUI](https://daisyui.com/) | UI component library |
 
 ## License
 
