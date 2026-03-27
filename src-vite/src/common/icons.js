@@ -19,7 +19,7 @@ export { default as IconFolder } from '@/assets/icons/folder.svg';
 export { default as IconFolderExpanded } from '@/assets/icons/folder-expanded.svg';
 export { default as IconFolderCollapsed } from '@/assets/icons/folder-collapsed.svg';
 export { default as IconNewFolder } from '@/assets/icons/folder-plus.svg';
-export { default as IconFolderFavorite } from '@/assets/icons/folder-star.svg';
+export { default as IconFolderFavorite } from '@/assets/icons/folder-heart.svg';
 export { default as IconFolderSearch } from '@/assets/icons/folder-search.svg';
 export { default as IconOrder } from '@/assets/icons/order.svg';
 export { default as IconCopy } from '@/assets/icons/copy.svg';

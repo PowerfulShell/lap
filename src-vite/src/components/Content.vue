@@ -2427,7 +2427,7 @@ watch(
   () => [
     config.main.sidebarIndex,      // toolbar index
     libConfig.album.id, libConfig.album.folderId, libConfig.album.folderPath, libConfig.album.selected, // album
-    libConfig.favorite.albumId, libConfig.favorite.folderId, libConfig.favorite.folderPath, libConfig.favorite.rating, // favorite files and rating
+    (libConfig.favorite as any).tab, libConfig.favorite.albumId, libConfig.favorite.folderId, libConfig.favorite.folderPath, libConfig.favorite.rating, // favorite files and rating
     libConfig.search.fileName, config.search.fileType, config.search.sortType, config.search.sortOrder, // search and sort 
     libConfig.person.id,                                                              // person
     libConfig.calendar.year, libConfig.calendar.month, libConfig.calendar.date,       // calendar

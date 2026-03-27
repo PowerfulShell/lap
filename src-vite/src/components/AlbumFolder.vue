@@ -29,7 +29,7 @@
           ]"
           @click.stop="expandFolder(child)"
         />
-        <IconFolder class="p-1 w-6 h-6 shrink-0"/>
+        <component :is="child.is_favorite ? IconFolderFavorite : IconFolder" class="p-1 w-6 h-6 shrink-0"/>
 
         <!-- name -->
         <input v-if="isRenamingFolder && selection.folderPath.value === child.path"
@@ -47,11 +47,11 @@
             {{ child.name }}
           </div>
           <div class="ml-auto flex flex-row items-center text-base-content/30">
-            <TButton v-if="child.is_favorite" 
+            <!-- <TButton v-if="child.is_favorite" 
               :icon="IconHeartFilled"
               :disabled="true"
               :buttonSize="'small'"
-            />
+            /> -->
             <ContextMenu v-if="allowContextMenu && !isRenamingFolder"
               :class="[
                 selection.folderPath.value != child.path ? 'invisible group-hover:visible' : ''
@@ -134,8 +134,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { libConfig } from '@/common/config';
 import { isMac, shortenFilename, isValidFileName } from '@/common/utils';
 import { createFolder, renameFolder, fetchFolder, moveFolder, copyFolder, revealFolder, deleteFolder } from '@/common/api';
-// Hidden for now: folder favorite support.
-// import { setFolderFavorite } from '@/common/api';
+import { setFolderFavorite } from '@/common/api';
 import { Album, Folder } from '@/common/types';
 import { useAlbumSelection } from '@/composables/useAlbumSelection';
 
@@ -153,13 +152,14 @@ import {
   IconRename,
   IconMoveTo,
   IconTrash,
+  IconHeart,
+  IconFolderFavorite,
   IconHeartFilled,
-  IconCopyTo,
   IconFolder,
   IconRefresh,
+  IconStar,
+  IconUnFavorite
 } from '@/common/icons';
-// Hidden for now: folder favorite support.
-// import { IconUnFavorite } from '@/common/icons';
 
 // used for cross-component communication (Content.vue listens for this event)
 import { emit as tauriEmit } from '@tauri-apps/api/event';
@@ -216,13 +216,16 @@ const getMenuItemsForFolder = (folder: any) => {
   const isRoot = folder.path === props.rootPath;
   return [
     {
-      label: localeMsg.value.menu.album.refresh,
-      icon: IconRefresh,
+      label: !folder?.is_favorite ? localeMsg.value.menu.meta.favorite : localeMsg.value.menu.meta.unfavorite,
+      icon: !folder?.is_favorite ? IconHeart : IconHeart,
+      disabled: isRoot,
       action: () => {
-        tauriEmit('refresh-content');
-        // always refresh the folder tree as well
-        expandFolder(folder, true);
+        toggleFavorite();
       }
+    },
+    {
+      label: "-",
+      action: null
     },
     {
       label: localeMsg.value.menu.file.new_folder,
@@ -269,8 +272,13 @@ const getMenuItemsForFolder = (folder: any) => {
       }
     },
     {
-      label: "-",
-      action: null
+      label: localeMsg.value.menu.album.refresh,
+      icon: IconRefresh,
+      action: () => {
+        tauriEmit('refresh-content');
+        // always refresh the folder tree as well
+        expandFolder(folder, true);
+      }
     },
     {
       label: isMac ? localeMsg.value.menu.file.move_to_trash : localeMsg.value.menu.file.delete,
@@ -280,19 +288,6 @@ const getMenuItemsForFolder = (folder: any) => {
         showTrashFolderMsgbox.value = true;
       }
     },
-    // Hidden for now: favorite folders
-    // {
-    //   label: "-",
-    //   action: null
-    // },
-    // {
-    //   label: !folder?.is_favorite ? localeMsg.value.menu.meta.favorite : localeMsg.value.menu.meta.unfavorite,
-    //   icon: !folder?.is_favorite ? IconStar : IconUnFavorite,
-    //   disabled: isRoot,
-    //   action: () => {
-    //     toggleFavorite();
-    //   }
-    // },
   ];
 };
 
@@ -600,14 +595,14 @@ const clickTrashFolder = async () => {
   }
 };
 
-// Hidden for now: favorite folders
-// const toggleFavorite = async () => {
-//   const folder = selectedFolder.value;
-//   if (!folder || !selection.folderId.value) {
-//     return;
-//   }
-//   folder.is_favorite = !folder.is_favorite;
-//   await setFolderFavorite(selection.folderId.value, folder.is_favorite ?? false);
-// };
+/// toggle folder favorite
+const toggleFavorite = async () => {
+  const folder = selectedFolder.value;
+  if (!folder || !selection.folderId.value) {
+    return;
+  }
+  folder.is_favorite = !folder.is_favorite;
+  await setFolderFavorite(selection.folderId.value, folder.is_favorite ?? false);
+};
 
 </script>

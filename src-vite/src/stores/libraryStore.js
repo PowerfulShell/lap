@@ -20,8 +20,9 @@ export const useLibraryStore = defineStore('libraryStore', {
       activateTick: 0,        // increments on each album/folder click (even same target)
     },
 
-    /** @type {{ albumId: number | null, folderId: number, folderPath: string, rating: number | null }} */
+    /** @type {{ tab: 'favorite' | 'rating', albumId: number | null, folderId: number, folderPath: string, rating: number | null }} */
     favorite: {
+      tab: 'favorite',
       albumId: null,
       folderId: 0,            // 0 means favorite files (default)
       folderPath: '',

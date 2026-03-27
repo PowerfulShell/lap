@@ -1,23 +1,72 @@
 <template>
   <div class="sidebar-panel">
-    <div
-      :class="[
-        'sidebar-item',
-        libConfig.favorite.folderId === 0 && libConfig.favorite.rating === null ? 'sidebar-item-selected' : 'sidebar-item-hover',
-      ]"
-      @click="clickFavoriteFiles()"
-    >
-      <IconHeart class="mx-1 w-5 h-5 shrink-0" />
-      <div class="sidebar-item-label">
-        {{ $t('favorite.files') }}
+    <div class="sidebar-panel-header">
+      <div role="tablist" class="sidebar-header-tabs">
+        <button
+          role="tab"
+          :class="['sidebar-header-tab', activeTab === 'favorite' ? 'tab-active' : '']"
+          @click="setActiveTab('favorite')"
+        >
+          {{ $t('favorite.files') }}
+        </button>
+        <button
+          role="tab"
+          :class="['sidebar-header-tab', activeTab === 'rating' ? 'tab-active' : '']"
+          @click="setActiveTab('rating')"
+        >
+          {{ $t('favorite.ratings') }}
+        </button>
       </div>
-      <span v-if="favoriteFilesCount" class="sidebar-item-count">{{ favoriteFilesCount.toLocaleString() }}</span>
     </div>
 
-    <div class="sidebar-panel-header">
-      <span class="sidebar-panel-header-title">{{ $t('favorite.ratings') }}</span>
+    <div v-if="activeTab === 'favorite'" class="flex-1 overflow-x-hidden overflow-y-auto">
+      <div
+        :class="[
+          'sidebar-item',
+          libConfig.favorite.folderId === 0 && libConfig.favorite.rating === null ? 'sidebar-item-selected' : 'sidebar-item-hover',
+        ]"
+        @click="clickFavoriteFiles()"
+      >
+        <IconHeart class="mx-1 w-5 h-5 shrink-0" />
+        <div class="sidebar-item-label">
+          {{ $t('favorite.files') }}
+        </div>
+        <span v-if="favoriteFilesCount" class="sidebar-item-count">{{ favoriteFilesCount.toLocaleString() }}</span>
+      </div>
+
+      <div v-if="favorite_folders.length > 0" class="sidebar-panel-header">
+        <span class="sidebar-panel-header-title">{{ $t('favorite.folders') }}</span>
+      </div>
+      <div class="grow overflow-x-hidden overflow-y-auto">
+        <ul>
+          <li v-for="folder in favorite_folders" :key="folder.id">
+            <div
+              :class="[
+                'sidebar-item group',
+                libConfig.favorite.folderId === folder.id ? 'sidebar-item-selected' : 'sidebar-item-hover',
+              ]"
+              @click="clickFavoriteFolder(folder)"
+            >
+              <IconFolderFavorite class="mx-1 h-5 shrink-0" />
+              <div class="sidebar-item-label">
+                {{ folder.name }}
+              </div>
+              <ContextMenu
+                :class="[
+                  'ml-auto flex flex-row items-center text-base-content/30',
+                  libConfig.favorite.folderId != folder.id ? 'invisible group-hover:visible' : ''
+                ]"
+                :iconMenu="IconMore"
+                :menuItems="favoriteFolderMenuItems"
+                :smallIcon="true"
+              />
+            </div>
+          </li>
+        </ul>
+      </div>
     </div>
-    <div class="grow overflow-x-hidden overflow-y-auto">
+
+    <div v-else class="flex-1 overflow-x-hidden overflow-y-auto">
       <ul>
         <li>
           <div
@@ -27,8 +76,8 @@
             ]"
             @click="clickRating(0)"
           >
-            <div class="mx-1 flex items-center gap-2 text-sm font-medium text-base-content/70">
-              <IconStar class="w-4 h-4 shrink-0" />
+            <div class="mx-1 flex items-center gap-2">
+              <IconStar class="w-5 h-5 shrink-0" />
               <span>{{ $t('favorite.unrated') }}</span>
             </div>
             <span v-if="unratedCount" class="sidebar-item-count ml-auto">{{ unratedCount.toLocaleString() }}</span>
@@ -46,7 +95,7 @@
               <IconStarFilled
                 v-for="index in rating"
                 :key="index"
-                class="w-4 h-4 shrink-0"
+                class="w-5 h-5 shrink-0"
               />
             </div>
             <span v-if="ratingCounts[rating]" class="sidebar-item-count ml-auto">{{ ratingCounts[rating].toLocaleString() }}</span>
@@ -54,62 +103,28 @@
         </li>
       </ul>
     </div>
-
-    <!-- Hidden for now: favorite folders
-    <div v-if="favorite_folders.length > 0" class="sidebar-panel-header">
-      <span class="sidebar-panel-header-title">{{ $t('favorite.folders') }}</span>
-    </div>
-    <div class="grow overflow-x-hidden overflow-y-auto">
-      <ul>
-        <li v-for="folder in favorite_folders" :key="folder.id">
-          <div
-            :class="[
-              'sidebar-item group',
-              libConfig.favorite.folderId === folder.id ? 'sidebar-item-selected' : 'sidebar-item-hover',
-            ]"
-            @click="clickFavoriteFolder(folder)"
-          >
-            <IconFolderFavorite class="mx-1 h-5 shrink-0" />
-            <div class="sidebar-item-label">
-              {{ folder.name }}
-            </div>
-            <ContextMenu
-              :class="[
-                'ml-auto flex flex-row items-center text-base-content/30',
-                libConfig.favorite.folderId != folder.id ? 'invisible group-hover:visible' : ''
-              ]"
-              :iconMenu="IconMore"
-              :menuItems="favoriteFolderMenuItems"
-              :smallIcon="true"
-            />
-          </div>
-        </li>
-      </ul>
-    </div>
-    -->
   </div>
 </template>
-  
+
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { libConfig } from '@/common/config';
-import { getQueryCountAndSum } from '@/common/api';
 
-import { IconHeart, IconStarFilled, IconStar } from '@/common/icons';
-
-// Hidden for now: favorite folder support kept here for easy restore.
-// import { ref, computed, onMounted } from 'vue';
-// import { useI18n } from 'vue-i18n';
-// import { getFavoriteFolders, setFolderFavorite } from '@/common/api';
-// import { getFolderName } from '@/common/utils';
-// import ContextMenu from '@/components/ContextMenu.vue';
-// import { IconMore, IconFolderFavorite, IconUnFavorite } from '@/common/icons';
+import { useI18n } from 'vue-i18n';
+import { getQueryCountAndSum, getFavoriteFolders, setFolderFavorite } from '@/common/api';
+import { getFolderName } from '@/common/utils';
+import ContextMenu from '@/components/ContextMenu.vue';
+import { IconMore, IconFolderFavorite, IconHeart, IconStar, IconStarFilled } from '@/common/icons';
 
 const props = defineProps({
   titlebar: {
     type: String,
     required: true
   }
+});
+
+const activeTab = computed(() => {
+  return (libConfig.favorite as any).tab === 'rating' ? 'rating' : 'favorite';
 });
 
 const favoriteFilesCount = ref(0);
@@ -161,45 +176,61 @@ async function loadCounts() {
 }
 
 onMounted(() => {
+  if ((libConfig.favorite as any).tab !== 'favorite' && (libConfig.favorite as any).tab !== 'rating') {
+    (libConfig.favorite as any).tab = 'favorite';
+  }
   void loadCounts();
 });
 
-// Hidden for now: favorite folders
-// const { locale, messages } = useI18n();
-// const localeMsg = computed(() => messages.value[locale.value] as any);
-// interface FavoriteFolder {
-//   id: number;
-//   album_id: number;
-//   path: string;
-//   name?: string;
-// }
-// const favorite_folders = ref<FavoriteFolder[]>([]);
-// const favoriteFolderMenuItems = computed(() => {
-//   return [
-//     {
-//       label: localeMsg.value.menu.meta.unfavorite,
-//       icon: IconUnFavorite,
-//       action: () => {
-//         UnFavorite();
-//       }
-//     },
-//   ];
-// });
-// onMounted(() => {
-//   if (favorite_folders.value.length === 0) {
-//     getFavoriteFolders().then((folders) => {
-//       favorite_folders.value = folders || [];
-//       favorite_folders.value.forEach((folder) => {
-//         folder.name = getFolderName(folder.path);
-//       });
-//     });
-//   }
-// });
+function setActiveTab(tab: 'favorite' | 'rating') {
+  if (tab === 'favorite') {
+    clickFavoriteFiles();
+    return;
+  }
 
+  if (libConfig.favorite.rating === null) {
+    clickRating(0);
+    return;
+  }
+
+  (libConfig.favorite as any).tab = 'rating';
+}
+
+const { locale, messages } = useI18n();
+const localeMsg = computed(() => messages.value[locale.value] as any);
+interface FavoriteFolder {
+  id: number;
+  album_id: number;
+  path: string;
+  name?: string;
+}
+const favorite_folders = ref<FavoriteFolder[]>([]);
+const favoriteFolderMenuItems = computed(() => {
+  return [
+    {
+      label: localeMsg.value.menu.meta.unfavorite,
+      icon: IconHeart,
+      action: () => {
+        UnFavorite();
+      }
+    },
+  ];
+});
+onMounted(() => {
+  if (favorite_folders.value.length === 0) {
+    getFavoriteFolders().then((folders) => {
+      favorite_folders.value = folders || [];
+      favorite_folders.value.forEach((folder) => {
+        folder.name = getFolderName(folder.path);
+      });
+    });
+  }
+});
 // click favorite files
 function clickFavoriteFiles() {
+  (libConfig.favorite as any).tab = 'favorite';
   libConfig.favorite.albumId = null;
-  libConfig.favorite.folderId = 0;    // 0 means favorite files
+  libConfig.favorite.folderId = 0;
   libConfig.favorite.folderPath = '';
   libConfig.favorite.rating = null;
 }
@@ -209,36 +240,41 @@ if (libConfig.favorite.folderId !== 0) {
 }
 
 function clickRating(rating: number) {
+  (libConfig.favorite as any).tab = 'rating';
   libConfig.favorite.albumId = null;
   libConfig.favorite.folderId = 0;
   libConfig.favorite.folderPath = '';
   libConfig.favorite.rating = rating;
 }
 
-// Hidden for now: favorite folders
-// function clickFavoriteFolder(folder: any) {
-//   libConfig.favorite.albumId = folder.album_id;
-//   libConfig.favorite.folderId = folder.id;
-//   libConfig.favorite.folderPath = folder.path;
-// }
-// function UnFavorite() {
-//   setFolderFavorite(libConfig.favorite.folderId, false).then(() => {
-//     const index = favorite_folders.value.findIndex((f: any) => f.id === libConfig.favorite.folderId);
-//     favorite_folders.value = favorite_folders.value.filter((f: any) => f.id !== libConfig.favorite.folderId);
-//     if (favorite_folders.value.length === 0) {
-//       libConfig.favorite.folderId = 0;
-//       libConfig.favorite.albumId = null;
-//       libConfig.favorite.folderPath = '';
-//     } else if (index === 0) {
-//       libConfig.favorite.folderId = favorite_folders.value[index].id;
-//       libConfig.favorite.albumId = favorite_folders.value[index].album_id;
-//       libConfig.favorite.folderPath = favorite_folders.value[index].path;
-//     } else {
-//       libConfig.favorite.folderId = favorite_folders.value[index - 1].id;
-//       libConfig.favorite.albumId = favorite_folders.value[index - 1].album_id;
-//       libConfig.favorite.folderPath = favorite_folders.value[index - 1].path;
-//     }
-//   });
-// }
+if (libConfig.favorite.folderId !== 0 || libConfig.favorite.rating !== null) {
+  (libConfig.favorite as any).tab = 'rating';
+} else {
+  clickFavoriteFiles();
+}
 
+function clickFavoriteFolder(folder: any) {
+  libConfig.favorite.albumId = folder.album_id;
+  libConfig.favorite.folderId = folder.id;
+  libConfig.favorite.folderPath = folder.path;
+}
+function UnFavorite() {
+  setFolderFavorite(libConfig.favorite.folderId, false).then(() => {
+    const index = favorite_folders.value.findIndex((f: any) => f.id === libConfig.favorite.folderId);
+    favorite_folders.value = favorite_folders.value.filter((f: any) => f.id !== libConfig.favorite.folderId);
+    if (favorite_folders.value.length === 0) {
+      libConfig.favorite.folderId = 0;
+      libConfig.favorite.albumId = null;
+      libConfig.favorite.folderPath = '';
+    } else if (index === 0) {
+      libConfig.favorite.folderId = favorite_folders.value[index].id;
+      libConfig.favorite.albumId = favorite_folders.value[index].album_id;
+      libConfig.favorite.folderPath = favorite_folders.value[index].path;
+    } else {
+      libConfig.favorite.folderId = favorite_folders.value[index - 1].id;
+      libConfig.favorite.albumId = favorite_folders.value[index - 1].album_id;
+      libConfig.favorite.folderPath = favorite_folders.value[index - 1].path;
+    }
+  });
+}
 </script>
