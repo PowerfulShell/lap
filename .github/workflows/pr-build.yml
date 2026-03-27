@@ -350,4 +350,4 @@ jobs:
             gh release delete-asset "$TAG" "$asset" -R "$GH_REPO" -y
           done
 
-          gh release upload "$TAG" -R "$GH_REPO" release-files/* --clobber
+          find release-files -type f | xargs gh release upload "$TAG" -R "$GH_REPO" --clobber
