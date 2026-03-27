@@ -9,7 +9,56 @@ use image::{DynamicImage, ImageFormat, RgbImage};
 use rusqlite::Result;
 use std::collections::HashMap;
 use std::io::Cursor;
-/// Get video dimensions using ffmpeg
+
+/// Extract rotation from a video stream.
+/// First checks the legacy `rotate` metadata tag, then falls back to the
+/// display‑matrix side‑data that modern iPhone MOV files use.
+fn get_stream_rotation(stream: &ffmpeg::format::stream::Stream) -> i32 {
+    // 1. Legacy metadata tag (older containers)
+    if let Some(rot) = stream
+        .metadata()
+        .get("rotate")
+        .and_then(|v| v.parse::<i32>().ok())
+    {
+        if rot != 0 {
+            return rot;
+        }
+    }
+
+    // 2. Display‑matrix side data (modern MOV/MP4)
+    unsafe {
+        let raw_stream = stream.as_ptr();
+        if raw_stream.is_null() {
+            return 0;
+        }
+        let codecpar = (*raw_stream).codecpar;
+        if codecpar.is_null() {
+            return 0;
+        }
+        let n = (*codecpar).nb_coded_side_data;
+        let side_data_ptr = (*codecpar).coded_side_data;
+        if side_data_ptr.is_null() || n <= 0 {
+            return 0;
+        }
+        for i in 0..n as isize {
+            let entry = &*side_data_ptr.offset(i);
+            if entry.type_
+                == ffmpeg::ffi::AVPacketSideDataType::AV_PKT_DATA_DISPLAYMATRIX
+                && entry.size >= 36
+                && !entry.data.is_null()
+            {
+                let angle =
+                    ffmpeg::ffi::av_display_rotation_get(entry.data as *const i32);
+                let rounded = (-angle).round() as i32;
+                return ((rounded % 360) + 360) % 360;
+            }
+        }
+    }
+
+    0
+}
+
+/// Get video dimensions using ffmpeg (accounts for rotation)
 pub fn get_video_dimensions(file_path: &str) -> Result<(u32, u32), String> {
     ffmpeg_next::init().map_err(|e| format!("ffmpeg init error: {:?}", e))?;
     match ffmpeg_next::format::input(&file_path) {
@@ -18,13 +67,19 @@ pub fn get_video_dimensions(file_path: &str) -> Result<(u32, u32), String> {
                 .streams()
                 .best(ffmpeg_next::media::Type::Video)
                 .ok_or("No video stream found")?;
+            let rotation = get_stream_rotation(&input);
             let context = ffmpeg_next::codec::context::Context::from_parameters(input.parameters())
                 .map_err(|e| format!("Failed to get codec context: {}", e))?;
             let decoder = context.decoder();
             let video = decoder
                 .video()
                 .map_err(|e| format!("Failed to get video decoder: {}", e))?;
-            Ok((video.width(), video.height()))
+            let (w, h) = (video.width(), video.height());
+            if rotation == 90 || rotation == 270 {
+                Ok((h, w))
+            } else {
+                Ok((w, h))
+            }
         }
         Err(e) => Err(format!("Failed to open file: {:?}", e)),
     }
@@ -69,11 +124,7 @@ fn get_video_thumbnail_internal(
 
     let stream_index = input_stream.index();
 
-    let rotation = input_stream
-        .metadata()
-        .get("rotate")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
+    let rotation = get_stream_rotation(&input_stream);
 
     let mut decoder = ffmpeg::codec::context::Context::from_parameters(input_stream.parameters())
         .map_err(|e| format!("Failed to get decoder context: {e}"))?
