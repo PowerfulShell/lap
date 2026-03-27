@@ -54,8 +54,9 @@
         "title": "Scanning Interrupted",
         "continue": "Continue",
         "skip": "Skip",
+        "skip_once": "Skip this file and continue",
         "file_label": "Last scanned file",
-        "message": "The previous scan did not close normally.\n\nYou can continue, or skip the last file and resume scanning.",
+        "message": "The previous scan did not close normally.",
         "message_with_file": "The previous scanning task did not exit cleanly.\n\nLast scanned file:\n{file}\n\nIf you continue, Lap will skip this file once and resume scanning."
       }
     }

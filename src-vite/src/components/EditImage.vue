@@ -28,6 +28,7 @@
           </div>
 
           <img
+            v-if="imageSrc"
             ref="imageRef"
             :src="imageSrc"
             :style="imageStyle"
@@ -453,6 +454,7 @@ import { useI18n } from 'vue-i18n';
 import { config } from '@/common/config';
 import { getFolderPath, shortenFilename, getFullPath, combineFileName, getSelectOptions, getFileExtension, getAssetSrc } from '@/common/utils';
 import { editImage, checkFileExists, getFileImage } from '@/common/api';
+import { clearFileImageCache } from '@/common/utils';
 
 import ModalDialog from '@/components/ModalDialog.vue';
 import MessageBox from '@/components/MessageBox.vue';
@@ -479,6 +481,10 @@ const props = defineProps({
   fileInfo: {
     type: Object,
     required: true,
+  },
+  initialImageSrc: {
+    type: String,
+    default: '',
   },
   initialTab: {
     type: String,
@@ -1089,21 +1095,38 @@ function createObjectUrlFromBase64(base64: string, mime: string): string {
   return URL.createObjectURL(blob);
 }
 
+const initEditImageLoadingId = ref(0);
+
 const initEditImage = async () => {
   if (imageObjectUrl.value) {
     URL.revokeObjectURL(imageObjectUrl.value);
     imageObjectUrl.value = '';
   }
 
+  initEditImageLoadingId.value++;
+  const loadingId = initEditImageLoadingId.value;
+
   if (isRawFile.value || isTiffFile.value) {
-    const result = await getFileImage(props.fileInfo.file_path);
-    const payload = parseBase64ImagePayload(result || '');
-    if (payload) {
-      imageObjectUrl.value = createObjectUrlFromBase64(payload.base64, payload.mime);
-      imageSrc.value = imageObjectUrl.value;
-    } else {
-      imageSrc.value = getAssetSrc(props.fileInfo.file_path);
+    if (props.initialImageSrc) {
+      imageSrc.value = props.initialImageSrc;
     }
+
+    void (async () => {
+      try {
+        const result = await getFileImage(props.fileInfo.file_path);
+        if (loadingId !== initEditImageLoadingId.value) return;
+        const payload = parseBase64ImagePayload(result || '');
+        if (payload) {
+          if (imageObjectUrl.value) {
+            URL.revokeObjectURL(imageObjectUrl.value);
+          }
+          imageObjectUrl.value = createObjectUrlFromBase64(payload.base64, payload.mime);
+          imageSrc.value = imageObjectUrl.value;
+        }
+      } catch {
+        if (loadingId !== initEditImageLoadingId.value) return;
+      }
+    })();
   } else {
     imageSrc.value = getAssetSrc(props.fileInfo.file_path);
   }
@@ -1799,6 +1822,10 @@ const executeSave = async (overrides: { fileName?: string; destFilePath?: string
   } finally {
     isProcessing.value = false;
     if (success) {
+      clearFileImageCache(props.fileInfo.file_path);
+      if (saveAsNew) {
+        clearFileImageCache(savedFilePath);
+      }
       uiStore.updateFileVersion(props.fileInfo.file_path);
       if (uiStore.activeAdjustments.filePath === props.fileInfo.file_path) {
         uiStore.clearActiveAdjustments();

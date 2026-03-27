@@ -54,8 +54,9 @@
         "title": "Varredura interrompida",
         "continue": "Continuar",
         "skip": "Ignorar",
+        "skip_once": "Pular este arquivo e continuar",
         "file_label": "Último arquivo verificado",
-        "message": "A verificação anterior não foi encerrada normalmente.\n\nVocê pode continuar ou ignorar o último arquivo para retomar a verificação.",
+        "message": "A verificação anterior não foi encerrada normalmente.",
         "message_with_file": "A varredura anterior não foi encerrada corretamente.\n\nÚltimo arquivo verificado:\n{file}\n\nSe continuar, o Lap irá pular este arquivo uma vez e retomar a varredura."
       }
     }

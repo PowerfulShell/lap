@@ -766,6 +766,8 @@ const rotateRight = () => mediaRef.value?.rotateRight();
 const togglePlay = () => mediaRef.value?.togglePlay?.();
 const getViewportState = () => mediaRef.value?.getViewportState?.();
 const applyViewportState = (viewport: any, silent = false) => mediaRef.value?.applyViewportState?.(viewport, silent);
+const getCurrentImageSrc = () => mediaRef.value?.getCurrentImageSrc?.() || '';
+const clearPreloadCache = (filePath?: string) => mediaRef.value?.clearPreloadCache?.(filePath);
 const showMessage = (message: string, isWarning: boolean = false) => toolTipRef.value?.showTip(message, isWarning);
 const showTip = (message: string, isWarning: boolean = false) => toolTipRef.value?.showTip(message, isWarning);
 
@@ -824,6 +826,8 @@ defineExpose({
   togglePlay,
   getViewportState,
   applyViewportState,
+  getCurrentImageSrc,
+  clearPreloadCache,
   showMessage,
   triggerPrev,
   triggerNext

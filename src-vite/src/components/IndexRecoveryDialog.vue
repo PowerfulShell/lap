@@ -1,14 +1,20 @@
 <template>
   <ModalDialog :title="title" :width="440" @cancel="clickCancel">
     <div class="flex flex-col gap-3">
-      <div v-if="message" class="text-sm whitespace-pre-line warp-break-words">
+      <div v-if="message" class="text-sm wrap-break-word">
         {{ message }}
       </div>
 
       <div v-if="filePath" class="flex flex-col gap-1 rounded-box bg-base-100/40 px-3 py-2">
         <div class="text-xs text-base-content/50">{{ fileLabel }}</div>
-        <div class="text-sm text-base-content break-all">{{ filePath }}</div>
+        <div class="text-sm text-base-content font-medium break-all">{{ fileName }}</div>
+        <div class="text-xs text-base-content/60 break-all">{{ filePath }}</div>
       </div>
+
+      <label class="mt-1 flex items-center gap-2 text-sm cursor-pointer">
+        <input v-model="skipThisFile" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+        <span>{{ skipLabel }}</span>
+      </label>
 
       <div class="mt-2 flex justify-end space-x-4">
         <button
@@ -16,13 +22,6 @@
           @click="clickCancel"
         >
           {{ cancelText }}
-        </button>
-
-        <button
-          class="px-4 py-1 rounded-box hover:bg-base-100 hover:text-base-content cursor-pointer"
-          @click="clickSkip"
-        >
-          {{ skipText }}
         </button>
 
         <button
@@ -37,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useUIStore } from '@/stores/uiStore';
 import ModalDialog from '@/components/ModalDialog.vue';
 
@@ -62,9 +61,9 @@ const props = defineProps({
     type: String,
     default: 'Continue',
   },
-  skipText: {
+  skipLabel: {
     type: String,
-    default: 'Skip',
+    default: 'Skip this file and continue',
   },
   cancelText: {
     type: String,
@@ -72,8 +71,14 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['continue', 'skip', 'cancel']);
+const emit = defineEmits(['continue', 'cancel']);
 const uiStore = useUIStore();
+const skipThisFile = ref(false);
+const fileName = computed(() => {
+  if (!props.filePath) return '';
+  const normalized = props.filePath.replace(/\\/g, '/');
+  return normalized.split('/').pop() || props.filePath;
+});
 
 function handleKeyDown(event: KeyboardEvent) {
   if (!uiStore.isInputActive('IndexRecoveryDialog')) return;
@@ -91,11 +96,7 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 function clickContinue() {
-  emit('continue');
-}
-
-function clickSkip() {
-  emit('skip');
+  emit('continue', skipThisFile.value);
 }
 
 function clickCancel() {

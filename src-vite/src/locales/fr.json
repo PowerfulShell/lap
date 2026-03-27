@@ -54,8 +54,9 @@
         "title": "Analyse interrompue",
         "continue": "Continuer",
         "skip": "Ignorer",
+        "skip_once": "Ignorer ce fichier et continuer",
         "file_label": "Dernier fichier analysé",
-        "message": "La précédente analyse ne s'est pas terminée normalement.\n\nVous pouvez continuer ou ignorer le dernier fichier pour reprendre l’analyse.",
+        "message": "La précédente analyse ne s'est pas terminée normalement.",
         "message_with_file": "L’analyse précédente ne s’est pas terminée correctement.\n\nDernier fichier analysé :\n{file}\n\nSi vous continuez, Lap ignorera ce fichier une fois et reprendra l’analyse."
       }
     }

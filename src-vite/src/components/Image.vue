@@ -182,6 +182,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { config, libConfig } from '@/common/config';
 import { getAssetSrc } from '@/common/utils';
 import { getFacesForFile, getFileImage } from '@/common/api';
+import { hasFileImageCache } from '@/common/utils';
 import { RawFace, Face } from '@/common/types';
 
 import { IconError } from '@/common/icons';
@@ -234,7 +235,7 @@ const uiStore = useUIStore();
 const container = ref(null);
 const containerSize = ref({ width: 0, height: 0 });
 const containerPos = ref({ x: 0, y: 0 });
-const isZoomFit = ref(false);               // Zoom to fit image in container
+const isZoomFit = ref(props.isZoomFit);     // Zoom to fit image in container
 
 // image
 const activeImage = ref(1);                 // which image is active (0 or 1)
@@ -902,7 +903,8 @@ watch(() => props.filePath, async (newFilePath) => {
   }, 500);
 
   const usesBackendPreview = shouldUseBackendPreview(newFilePath);
-  const hasPreviewPlaceholder = usesBackendPreview && !!props.thumbnailSrc;
+  const hasCachedPreview = usesBackendPreview && hasFileImageCache(newFilePath);
+  const hasPreviewPlaceholder = usesBackendPreview && !hasCachedPreview && !!props.thumbnailSrc;
   if (hasPreviewPlaceholder) {
     try {
       const placeholder = await loadPlaceholderResource(props.thumbnailSrc);
@@ -1668,6 +1670,20 @@ defineExpose({
   rotateRight,
   getViewportState,
   applyViewportState,
+  getCurrentImageSrc: () => imageSrc.value[activeImage.value] || '',
+  clearPreloadCache: (filePath?: string) => {
+    if (filePath) {
+      preloadCache.delete(filePath);
+      if (rawBlobUrlMap.has(filePath)) {
+        URL.revokeObjectURL(rawBlobUrlMap.get(filePath)!);
+        rawBlobUrlMap.delete(filePath);
+      }
+    } else {
+      preloadCache.clear();
+      rawBlobUrlMap.forEach((url) => URL.revokeObjectURL(url));
+      rawBlobUrlMap.clear();
+    }
+  },
 });
 
 </script>

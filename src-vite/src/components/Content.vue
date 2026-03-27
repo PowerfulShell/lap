@@ -443,6 +443,7 @@
   <EditImage
     v-if="showEditImage"
     :fileInfo="fileList[selectedItemIndex]"
+    :initialImageSrc="editImageInitialImageSrc"
     :initialTab="editImageInitialTab"
     @success="onFileSaved(true, $event)"
     @failed="onFileSaved(false)"
@@ -543,10 +544,9 @@
     :fileLabel="indexRecoveryFileLabel"
     :filePath="recoverySkipFilePath"
     :continueText="indexRecoveryOkText"
-    :skipText="indexRecoverySkipText"
+    :skipLabel="indexRecoverySkipLabel"
     :cancelText="$t('msgbox.cancel')"
-    @continue="confirmIndexRecoveryRetry"
-    @skip="confirmIndexRecoverySkip"
+    @continue="confirmIndexRecoveryContinue"
     @cancel="cancelIndexRecovery"
   />
 
@@ -574,7 +574,7 @@ import { getAlbumScanState, getAlbumScanIcon, shouldAnimateAlbumScanIcon } from 
 import { isWin, isMac, setTheme, separator,
          formatFileSize, formatDate, getCalendarDateRange, formatFolderBreadcrumb, getThumbnailDataUrl,
          extractFileName, combineFileName, getFolderPath, getSelectOptions, 
-         shortenFilename, getSlideShowInterval } from '@/common/utils';
+         shortenFilename, getSlideShowInterval, clearFileImageCache } from '@/common/utils';
 
 import DropDownSelect from '@/components/DropDownSelect.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
@@ -800,6 +800,16 @@ function getActivePreviewMediaRef() {
   return null;
 }
 
+function getCurrentPreviewImageSrc() {
+  const viewer = getActivePreviewMediaRef();
+  return viewer?.getCurrentImageSrc?.() || '';
+}
+
+function clearPreviewPreloadCache(filePath?: string) {
+  const viewer = getActivePreviewMediaRef();
+  viewer?.clearPreloadCache?.(filePath);
+}
+
 // film strip view
 const filmStripMediaRef = ref<any>(null);
 const filmStripZoomFit = ref(true);
@@ -842,6 +852,7 @@ const renamingFileName = ref<{name?: string, ext?: string}>({}); // extract the 
 
 const showMoveTo = ref(false);
 const showEditImage = ref(false);
+const editImageInitialImageSrc = ref('');
 const editImageInitialTab = ref<'edit' | 'adjust'>('edit');
 const showCopyTo = ref(false);
 const showTrashMsgbox = ref(false);
@@ -1322,6 +1333,7 @@ function handleItemAction(payload: { action: string, index: number }) {
     'print': () => void openPrintWindow(selectedItemIndex.value),
     'edit': () => {
       editImageInitialTab.value = config.imageEditor.tab === 'adjust' ? 'adjust' : 'edit';
+      editImageInitialImageSrc.value = getCurrentPreviewImageSrc();
       showEditImage.value = true;
     },
     'open-external-app': () => {
@@ -1742,6 +1754,7 @@ const handleKeyDown = (e: any) => {
     enterSimilarSearchMode(fileList.value[selectedItemIndex.value]);
   } else if (isCmdKey && key.toLowerCase() === 'e') {
     editImageInitialTab.value = config.imageEditor.tab === 'adjust' ? 'adjust' : 'edit';
+    editImageInitialImageSrc.value = getCurrentPreviewImageSrc();
     showEditImage.value = true;
   } else if ((isMac && metaKey && key === 'Backspace') || (!isMac && key === 'Delete')) {
     openTrashMsgbox();
@@ -1760,19 +1773,19 @@ const showIndexRecoveryMsgbox = ref(false);
 const recoverySkipFilePath = ref('');  // local: file path from crash trace
 const indexRecoveryTitle = computed(() => localeMsg.value.search.index.recovery.title);
 const indexRecoveryOkText = computed(() => localeMsg.value.search.index.recovery.continue);
-const indexRecoverySkipText = computed(() => localeMsg.value.search.index.recovery.skip);
+const indexRecoverySkipLabel = computed(() => localeMsg.value.search.index.recovery.skip_once);
 const indexRecoveryFileLabel = computed(() => localeMsg.value.search.index.recovery.file_label);
 const indexRecoveryMessage = computed(() => {
   return localeMsg.value.search.index.recovery.message;
 });
 
-async function processNextAlbum(skipFilePath: string | null = null) {
+async function processNextAlbum(skipFilePath: string | null = null, skipRecoveryCheck = false) {
   if (libConfig.index.albumQueue.length > 0) {
     const albumId = libConfig.index.albumQueue[0];
     const album = await getAlbum(albumId);
     if (album) {
       // Check for crash recovery: if trace file exists and matches this album
-      if (!skipFilePath) {
+      if (!skipFilePath && !skipRecoveryCheck) {
         const recoveryInfo = await getIndexRecoveryInfo();
         if (recoveryInfo && Number(recoveryInfo.album_id) === Number(albumId)) {
           recoverySkipFilePath.value = String(recoveryInfo.file_path || '');
@@ -1836,19 +1849,16 @@ const syncIndexStatus = () => {
   }
 };
 
-const confirmIndexRecoveryRetry = async () => {
-  showIndexRecoveryMsgbox.value = false;
-  recoverySkipFilePath.value = '';
-  await clearIndexRecoveryInfo();  // delete trace file first to prevent re-detection
-  await processNextAlbum(null); // passing null means retry the file
-};
+const isRecoveryInProgress = ref(false);
 
-const confirmIndexRecoverySkip = async () => {
+const confirmIndexRecoveryContinue = async (shouldSkip = false) => {
   showIndexRecoveryMsgbox.value = false;
-  const skipFilePath = recoverySkipFilePath.value;
+  const skipFilePath = shouldSkip ? recoverySkipFilePath.value : null;
   recoverySkipFilePath.value = '';
   await clearIndexRecoveryInfo();  // delete trace file first to prevent re-detection
-  await processNextAlbum(skipFilePath || null); // passing path means skip it
+  isRecoveryInProgress.value = true;
+  await processNextAlbum(skipFilePath, true);
+  isRecoveryInProgress.value = false;
 };
 
 const cancelIndexRecovery = () => {
@@ -2373,7 +2383,7 @@ watch(() => isInfoPanelOpen.value, async (newShow) => {
 });
 
 watch(() => libConfig.index.status, (newStatus) => {
-  if (newStatus === 1 && libConfig.index.albumQueue.length > 0) {
+  if (newStatus === 1 && libConfig.index.albumQueue.length > 0 && !isRecoveryInProgress.value) {
     processNextAlbum();
   }
 });
@@ -3413,6 +3423,8 @@ const onFileSaved = async (success: boolean, payload: SavedFilePayload = {}) => 
   if (success) {
     showEditImage.value = false;
     if (payload.saveAsNew && payload.filePath) {
+      clearFileImageCache(payload.filePath);
+      clearPreviewPreloadCache(payload.filePath);
       const inserted = await indexAndInsertSavedFile(payload.filePath);
       if (!inserted) {
         updateContent();
@@ -3420,6 +3432,10 @@ const onFileSaved = async (success: boolean, payload: SavedFilePayload = {}) => 
       toolTipRef.value.showTip(localeMsg.value.tooltip.save_image.save_as_success || localeMsg.value.tooltip.save_image.success);
     } else {
       const savedFile = fileList.value[selectedItemIndex.value];
+      if (savedFile?.file_path) {
+        clearFileImageCache(savedFile.file_path);
+        clearPreviewPreloadCache(savedFile.file_path);
+      }
       if (savedFile && Number(savedFile.rotate || 0) !== 0) {
         savedFile.rotate = 0;
         await setFileRotate(savedFile.id, 0);

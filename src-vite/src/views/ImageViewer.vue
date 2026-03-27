@@ -659,7 +659,9 @@ function getViewerRef(pane: 'left' | 'right') {
 function haveMatchingSyncableMedia() {
   const leftType = fileInfo.value?.file_type;
   const rightType = rightFileInfo.value?.file_type;
-  return (leftType === 1 || leftType === 2) && leftType === rightType;
+  const isImageType = (t: number) => t === 1 || t === 3;
+  if (isImageType(leftType) && isImageType(rightType)) return true;
+  return leftType === 2 && rightType === 2;
 }
 
 function syncViewportFrom(pane: 'left' | 'right', animate = false) {

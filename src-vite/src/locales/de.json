@@ -54,8 +54,9 @@
         "title": "Scan unterbrochen",
         "continue": "Weiter",
         "skip": "Überspringen",
+        "skip_once": "Diese Datei überspringen und fortfahren",
         "file_label": "Zuletzt gescannte Datei",
-        "message": "Der letzte Scan wurde nicht normal beendet.\n\nSie können fortfahren oder die letzte Datei überspringen, um den Scan fortzusetzen.",
+        "message": "Der letzte Scan wurde nicht normal beendet.",
         "message_with_file": "Der vorherige Scan wurde nicht sauber beendet.\n\nZuletzt gescannte Datei:\n{file}\n\nWenn Sie fortfahren, überspringt Lap diese Datei einmal und setzt den Scan fort."
       }
     }

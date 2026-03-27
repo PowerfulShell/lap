@@ -415,3 +415,61 @@ export function getCountryName(cc: string, lang: string = 'en'): string {
     return cc;
   }
 }
+
+// file image cache (LRU, max 3 entries)
+const FILE_IMAGE_CACHE_MAX = 3;
+const fileImageCache = new Map<string, any>();
+const fileImagePending = new Map<string, Promise<any>>();
+
+function touchFileImageCache(filePath: string) {
+  if (!fileImageCache.has(filePath)) return;
+  const value = fileImageCache.get(filePath);
+  fileImageCache.delete(filePath);
+  fileImageCache.set(filePath, value);
+}
+
+export function getFileImageFromCache(filePath: string): any | undefined {
+  if (fileImageCache.has(filePath)) {
+    touchFileImageCache(filePath);
+    return fileImageCache.get(filePath);
+  }
+  return undefined;
+}
+
+export function setFileImageToCache(filePath: string, value: any) {
+  if (fileImageCache.has(filePath)) {
+    fileImageCache.delete(filePath);
+  }
+  fileImageCache.set(filePath, value);
+  while (fileImageCache.size > FILE_IMAGE_CACHE_MAX) {
+    const oldest = fileImageCache.keys().next().value;
+    if (oldest !== undefined) fileImageCache.delete(oldest);
+  }
+}
+
+export function getFileImagePending(filePath: string): Promise<any> | undefined {
+  return fileImagePending.get(filePath);
+}
+
+export function setFileImagePending(filePath: string, promise: Promise<any>) {
+  fileImagePending.set(filePath, promise);
+}
+
+export function deleteFileImagePending(filePath: string) {
+  fileImagePending.delete(filePath);
+}
+
+export function clearFileImageCache(filePath: string) {
+  if (!filePath) return;
+  fileImageCache.delete(filePath);
+  fileImagePending.delete(filePath);
+}
+
+export function clearAllFileImageCache() {
+  fileImageCache.clear();
+  fileImagePending.clear();
+}
+
+export function hasFileImageCache(filePath: string): boolean {
+  return !!filePath && fileImageCache.has(filePath);
+}
