@@ -30,7 +30,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { listen } from '@tauri-apps/api/event';
 import { libConfig } from '@/common/config';
 
 import { IconPhotoAll } from '@/common/icons';
@@ -49,6 +50,7 @@ const emit = defineEmits(['editDataChanged']);
 const totalCount = ref(0);
 
 const albumListRef = ref<InstanceType<typeof AlbumList> | null>(null);
+let unlistenLibraryTotalRefreshed: (() => void) | null = null;
 
 // refresh component
 const albumListKey = ref(0);
@@ -56,13 +58,21 @@ const albumListKey = ref(0);
 // Check if there are any albums
 const hasAlbums = computed(() => (albumListRef.value?.albums?.length ?? 0) > 0);
 
+const refreshTotalCount = async () => {
+  const result = await getTotalCountAndSum();
+  totalCount.value = result ? result[0] : 0;
+};
+
 onMounted(async () => {
-  // get total count
-  getTotalCountAndSum().then((result) => {
-    if(result) {
-      totalCount.value = result[0];
-    }
-  });
+  await refreshTotalCount();
+  unlistenLibraryTotalRefreshed = await listen('library-total-refreshed', refreshTotalCount);
+});
+
+onBeforeUnmount(() => {
+  if (unlistenLibraryTotalRefreshed) {
+    unlistenLibraryTotalRefreshed();
+    unlistenLibraryTotalRefreshed = null;
+  }
 });
 
 const clickAllFiles = () => {

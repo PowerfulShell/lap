@@ -3520,6 +3520,10 @@ const refreshAffectedAlbums = async (albumIds: Array<number | null | undefined>)
   }
 };
 
+const refreshLibraryTotalCount = async () => {
+  await tauriEmit('library-total-refreshed');
+};
+
 const onMoveTo = async () => {
   const affectedAlbumIds = new Set<number>();
 
@@ -3569,6 +3573,7 @@ const onMoveTo = async () => {
   const destAlbumId = Number(libConfig.destFolder.albumId || 0);
   if (destAlbumId > 0) affectedAlbumIds.add(destAlbumId);
   await refreshAffectedAlbums(Array.from(affectedAlbumIds));
+  await refreshLibraryTotalCount();
 
   showMoveTo.value = false;
 }
@@ -3649,6 +3654,7 @@ const onTrashFile = async () => {
   }
 
   await refreshAffectedAlbums(Array.from(affectedAlbumIds));
+  await refreshLibraryTotalCount();
 
   if (deletedFileIds.length > 0) {
     tauriEmit('files-deleted', {

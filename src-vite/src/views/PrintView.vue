@@ -4,22 +4,24 @@
 
     <div class="print-ui flex-1 overflow-hidden px-3">
       <div class="h-full flex items-center justify-center">
-        <div v-if="isLoading" class="flex flex-col items-center gap-3 text-base-content/30">
-          <span class="loading loading-dots text-primary"></span>
-          <span class="text-sm">{{ $t('print_view.loading') }}</span>
-        </div>
-
-        <div v-else-if="loadError" class="text-sm text-base-content/50">
+        <div v-if="loadError" class="text-sm text-base-content/50">
           {{ $t('print_view.load_failed') }}
         </div>
 
         <div v-else class="w-full h-full flex items-center justify-center">
           <div class="relative w-full h-full rounded-box overflow-hidden border border-base-content/5 bg-base-300/30 shadow-sm cursor-default">
+            <div
+              v-if="isLoading"
+              class="absolute inset-0 z-10 flex items-center justify-center bg-base-100/55 backdrop-blur-sm"
+            >
+              <span class="loading loading-dots text-primary"></span>
+            </div>
             <div class="w-full h-full p-2 flex items-center justify-center">
               <img
                 v-if="imageSrc"
                 :src="imageSrc"
                 class="block w-full h-full object-contain"
+                @load="handleImageLoad"
                 @error="handleImageError"
               />
             </div>
@@ -136,8 +138,9 @@ async function resolvePrintSource(targetPath: string, targetFileType: number, ta
   } catch (error) {
     console.error('Failed to resolve print source:', error);
     loadError.value = true;
-  } finally {
     isLoading.value = false;
+  } finally {
+    // Keep the loading state until the preview image is actually rendered.
   }
 }
 
@@ -153,7 +156,13 @@ function openPrintDialog() {
   window.print();
 }
 
+function handleImageLoad() {
+  loadError.value = false;
+  isLoading.value = false;
+}
+
 function handleImageError() {
+  isLoading.value = false;
   loadError.value = true;
 }
 
@@ -207,7 +216,6 @@ onBeforeUnmount(() => {
   }
   window.removeEventListener('keydown', handleKeyDown, { capture: true });
   document.documentElement.style.fontSize = '';
-  revokeImageSrc();
 });
 
 watch(() => config.settings.language, (newLanguage) => {

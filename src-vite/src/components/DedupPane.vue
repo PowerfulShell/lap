@@ -112,18 +112,26 @@
               @dblclick="emit('preview-file', activeGroup.keepItem.file_id)"
             >
               <div class="flex items-center gap-2">
+                <div class="shrink-0 text-primary/80" :title="$t('info_panel.dedup.keep_label')">
+                  <IconLock class="w-4 h-4" />
+                </div>
                 <div class="w-10 h-10 rounded-box overflow-hidden bg-base-content/5 border border-base-content/15 shrink-0">
                   <img v-if="activeGroup.keepItem.file.thumbnail" :src="activeGroup.keepItem.file.thumbnail" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full skeleton"></div>
                 </div>
                 <div class="min-w-0 flex-1">
-                  <div class="text-[10px] uppercase tracking-widest text-primary/80 font-bold">{{ $t('info_panel.dedup.keep_label') }}</div>
                   <div class="text-xs font-semibold text-base-content/75 truncate">{{ activeGroup.keepItem.file.name }}</div>
                   <div
                     class="text-[11px] text-base-content/50 truncate"
                     :title="formatDedupFolderPath(activeGroup.keepItem.file)"
                   >
                     {{ formatDedupFolderPath(activeGroup.keepItem.file) }}
+                  </div>
+                  <div class="text-[11px] text-base-content/45">
+                    {{ formatFileSize(activeGroup.keepItem.file?.size || 0) }}
+                    <template v-if="activeGroup.keepItem.file?.width && activeGroup.keepItem.file?.height">
+                      · {{ activeGroup.keepItem.file.width }} x {{ activeGroup.keepItem.file.height }}
+                    </template>
                   </div>
                 </div>
               </div>
@@ -138,9 +146,9 @@
                   ? 'border-primary/50 bg-primary/8'
                   : 'border-base-content/8 bg-base-100/30 hover:border-base-content/18 hover:bg-base-100/50',
                 (isDupSelected(activeGroup.id, item.file_id) && selectedFileId === item.file_id)
-                  ? 'border-warning/50 bg-warning/8 hover:border-warning/50 hover:bg-warning/8'
+                  ? 'border-error/30 bg-error/5 hover:border-error/30 hover:bg-error/10'
                   : (isDupSelected(activeGroup.id, item.file_id)
-                    ? 'border-warning/18 bg-warning/4 hover:border-warning/28 hover:bg-warning/8'
+                    ? 'border-error/30 bg-error/5 hover:border-error/30 hover:bg-error/10'
                     : ''),
               ]"
               @click="handleDuplicateSelection(item.file_id)"
@@ -153,7 +161,7 @@
                 <label class="flex items-center cursor-pointer shrink-0" @click.stop>
                   <input
                     type="checkbox"
-                    class="checkbox checkbox-sm checkbox-primary"
+                    class="checkbox checkbox-xs checkbox-primary"
                     :checked="isDupSelected(activeGroup.id, item.file_id)"
                     @change="toggleDupSelected(activeGroup.id, item.file_id)"
                   />
@@ -191,7 +199,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { formatFileSize, getFolderName, getFolderPath, formatFolderBreadcrumb, getThumbnailDataUrl, isMac } from '@/common/utils';
 import TButton from '@/components/TButton.vue';
-import { IconCheckAll, IconCheckNone, IconClose, IconSimilar, IconSplitOn, IconTrash, IconRefresh } from '@/common/icons';
+import { IconCheckAll, IconCheckNone, IconClose, IconLock, IconSimilar, IconSplitOn, IconTrash, IconRefresh } from '@/common/icons';
 import { dedupStartScan, dedupGetScanStatus, dedupGetOverview, listenDedupScanProgress, dedupListGroups, dedupSetKeep, getAlbum, getFileThumb } from '@/common/api';
 import { config } from '@/common/config';
 

@@ -543,10 +543,12 @@ const displayedHistogramContrast = ref(0);
 const selectedFilter = ref('');
 const selectedPreset = ref('natural');
 const presetStripRef = ref<HTMLElement | null>(null);
-const histogramData = ref<number[]>(new Array(256).fill(0));
+const EMPTY_HISTOGRAM = new Array(256).fill(0);
+const histogramData = ref<number[]>([...EMPTY_HISTOGRAM]);
 let isApplyingPreset = false;
 let histogramToneAnimationFrame: number | null = null;
 let skipNextCustomPresetLoad = false;
+let histogramLoadId = 0;
 
 const imageStyle = computed((): CSSProperties => ({
   display: 'block',
@@ -1058,6 +1060,7 @@ const onImageLoad = async () => {
   }
 
   fitImageToContainer();
+  updateRealHistogram();
 
   requestAnimationFrame(() => {
     enableTransition.value = true;
@@ -1144,23 +1147,28 @@ const initEditImage = async () => {
   displayedHistogramContrast.value = contrast.value;
 };
 
-const updateRealHistogram = () => {
-  if (!props.fileInfo?.thumbnail) return;
+function clearHistogram() {
+  histogramData.value = [...EMPTY_HISTOGRAM];
+}
 
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.src = props.fileInfo.thumbnail;
+function resolveHistogramSource() {
+  return props.fileInfo?.thumbnail || imageSrc.value || '';
+}
 
-  img.onload = () => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
+function buildHistogramData(img: HTMLImageElement) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
+    clearHistogram();
+    return;
+  }
 
-    const size = 256;
-    canvas.width = size;
-    canvas.height = size;
-    ctx.drawImage(img, 0, 0, size, size);
+  const size = 256;
+  canvas.width = size;
+  canvas.height = size;
+  ctx.drawImage(img, 0, 0, size, size);
 
+  try {
     const imageData = ctx.getImageData(0, 0, size, size).data;
     const hist = new Array(256).fill(0);
 
@@ -1173,8 +1181,60 @@ const updateRealHistogram = () => {
     }
 
     const maxVal = Math.max(...hist);
-    histogramData.value = maxVal > 0 ? hist.map((v) => (v / maxVal) * 58) : new Array(256).fill(0);
-  };
+    histogramData.value = maxVal > 0 ? hist.map((v) => (v / maxVal) * 58) : [...EMPTY_HISTOGRAM];
+  } catch {
+    clearHistogram();
+  }
+}
+
+async function loadHistogramImage(source: string) {
+  const response = await fetch(source);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch histogram source: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+
+  return await new Promise<{ img: HTMLImageElement; objectUrl: string }>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const img = new Image();
+
+    img.onload = () => resolve({ img, objectUrl });
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to decode histogram source'));
+    };
+    img.src = objectUrl;
+  });
+}
+
+const updateRealHistogram = async () => {
+  const histogramSource = resolveHistogramSource();
+  if (!histogramSource) {
+    clearHistogram();
+    return;
+  }
+
+  const loadId = ++histogramLoadId;
+  let objectUrl = '';
+
+  try {
+    const loaded = await loadHistogramImage(histogramSource);
+    if (loadId !== histogramLoadId) {
+      URL.revokeObjectURL(loaded.objectUrl);
+      return;
+    }
+
+    objectUrl = loaded.objectUrl;
+    buildHistogramData(loaded.img);
+  } catch {
+    if (loadId !== histogramLoadId) return;
+    clearHistogram();
+  } finally {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 };
 
 const generateHistogramPath = () => {

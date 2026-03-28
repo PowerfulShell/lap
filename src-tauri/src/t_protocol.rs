@@ -6,6 +6,9 @@ fn text_response(status: http::StatusCode, body: &str) -> http::Response<Vec<u8>
     http::Response::builder()
         .status(status)
         .header(http::header::CONTENT_TYPE, "text/plain")
+        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(http::header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
+        .header(http::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
         .body(body.as_bytes().to_vec())
         .unwrap()
 }
@@ -26,6 +29,18 @@ fn detect_image_mime(data: &[u8]) -> &'static str {
     }
 }
 
+fn image_response(data: Vec<u8>) -> http::Response<Vec<u8>> {
+    http::Response::builder()
+        .status(http::StatusCode::OK)
+        .header(http::header::CONTENT_TYPE, detect_image_mime(&data))
+        .header(http::header::CACHE_CONTROL, "max-age=31536000, immutable")
+        .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(http::header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
+        .header(http::header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+        .body(data)
+        .unwrap()
+}
+
 pub fn register_protocols(builder: Builder<Wry>) -> Builder<Wry> {
     builder
         .register_uri_scheme_protocol("thumb", |_ctx, request| {
@@ -40,14 +55,7 @@ pub fn register_protocols(builder: Builder<Wry>) -> Builder<Wry> {
             }
 
             match t_sqlite::AThumb::fetch_raw(file_id) {
-                Ok(Some(data)) => {
-                    http::Response::builder()
-                        .status(http::StatusCode::OK)
-                        .header(http::header::CONTENT_TYPE, detect_image_mime(&data))
-                        .header(http::header::CACHE_CONTROL, "max-age=31536000, immutable")
-                        .body(data)
-                        .unwrap()
-                }
+                Ok(Some(data)) => image_response(data),
                 _ => text_response(http::StatusCode::NOT_FOUND, "thumbnail not found"),
             }
         })
@@ -82,12 +90,7 @@ pub fn register_protocols(builder: Builder<Wry>) -> Builder<Wry> {
 
             tauri::async_runtime::spawn(async move {
                 let response = match t_image::get_file_image_bytes_cached(&file_path).await {
-                    Ok(data) => http::Response::builder()
-                        .status(http::StatusCode::OK)
-                        .header(http::header::CONTENT_TYPE, detect_image_mime(&data))
-                        .header(http::header::CACHE_CONTROL, "max-age=31536000, immutable")
-                        .body(data)
-                        .unwrap(),
+                    Ok(data) => image_response(data),
                     Err(_) => text_response(http::StatusCode::NOT_FOUND, "preview not found"),
                 };
                 responder.respond(response);
