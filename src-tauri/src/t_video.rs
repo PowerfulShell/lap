@@ -42,13 +42,11 @@ fn get_stream_rotation(stream: &ffmpeg::format::stream::Stream) -> i32 {
         }
         for i in 0..n as isize {
             let entry = &*side_data_ptr.offset(i);
-            if entry.type_
-                == ffmpeg::ffi::AVPacketSideDataType::AV_PKT_DATA_DISPLAYMATRIX
+            if entry.type_ == ffmpeg::ffi::AVPacketSideDataType::AV_PKT_DATA_DISPLAYMATRIX
                 && entry.size >= 36
                 && !entry.data.is_null()
             {
-                let angle =
-                    ffmpeg::ffi::av_display_rotation_get(entry.data as *const i32);
+                let angle = ffmpeg::ffi::av_display_rotation_get(entry.data as *const i32);
                 let rounded = (-angle).round() as i32;
                 return ((rounded % 360) + 360) % 360;
             }

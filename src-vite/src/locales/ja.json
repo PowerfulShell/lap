@@ -918,6 +918,23 @@
         "低い"
       ]
     },
+    "privacy": {
+      "title": "プライバシー",
+      "section_usage": "匿名利用統計",
+      "enable_analytics": "匿名利用統計を共有する",
+      "enable_analytics_hint": "Lap の安定性とユーザー体験の向上に役立ちます。",
+      "section_collected": "共有情報",
+      "collected_intro": "Lap は、アプリ向けのプライバシー重視の分析サービス Aptabase を利用します。イベントは匿名で送信され、写真、ファイルパス、個人識別子は含まれません。有効にすると、Lap は次のみを送信します：",
+      "collected_activity": "匿名のアプリ利用カウンター",
+      "collected_app_version": "Lap のバージョン",
+      "collected_platform": "デバイスのプラットフォームと OS",
+      "collected_region": "おおまかな地域（分析サービスが粗く推定）",
+      "section_not_collected": "収集しないもの",
+      "not_collected_file_paths": "ファイルパス",
+      "not_collected_filenames": "ファイル名",
+      "not_collected_search_text": "検索テキストまたはプロンプト",
+      "not_collected_precise_location": "正確な位置情報"
+    },
     "about": {
       "title": "情報",
       "package": {

@@ -3,7 +3,8 @@ target/
 skills/
 .DS_Store
 .env
-run.sh
+dev.sh
+build.sh
 set_version.py
 publish_release.sh
 release-downloads.sh

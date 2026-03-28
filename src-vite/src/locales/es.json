@@ -918,6 +918,23 @@
         "Bajo"
       ]
     },
+    "privacy": {
+      "title": "Privacidad",
+      "section_usage": "Estadísticas de uso anónimas",
+      "enable_analytics": "Compartir estadísticas de uso anónimas",
+      "enable_analytics_hint": "Ayuda a mejorar la estabilidad y la experiencia de usuario de Lap.",
+      "section_collected": "Informacion compartida",
+      "collected_intro": "Lap usa Aptabase, un servicio de analitica para apps centrado en la privacidad. Los eventos son anonimos y no incluyen tus fotos, rutas de archivos ni identificadores personales. Cuando esta activado, Lap solo envia:",
+      "collected_activity": "Contadores anónimos de actividad de la app",
+      "collected_app_version": "Versión de Lap",
+      "collected_platform": "Plataforma del dispositivo y sistema operativo",
+      "collected_region": "Región aproximada (derivada de forma general por el servicio analítico)",
+      "section_not_collected": "No recopilado",
+      "not_collected_file_paths": "Rutas de archivos",
+      "not_collected_filenames": "Nombres de archivos",
+      "not_collected_search_text": "Texto de búsqueda o indicaciones",
+      "not_collected_precise_location": "Ubicación precisa"
+    },
     "about": {
       "title": "Acerca de",
       "package": {

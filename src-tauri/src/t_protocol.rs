@@ -67,7 +67,10 @@ pub fn register_protocols(builder: Builder<Wry>) -> Builder<Wry> {
             let file_id: i64 = file_id_str.parse().unwrap_or(0);
 
             if file_id <= 0 {
-                responder.respond(text_response(http::StatusCode::BAD_REQUEST, "invalid file_id"));
+                responder.respond(text_response(
+                    http::StatusCode::BAD_REQUEST,
+                    "invalid file_id",
+                ));
                 return;
             }
 
@@ -82,8 +85,10 @@ pub fn register_protocols(builder: Builder<Wry>) -> Builder<Wry> {
             let file_path = match file.file_path {
                 Some(path) if !path.is_empty() => path,
                 _ => {
-                    responder
-                        .respond(text_response(http::StatusCode::NOT_FOUND, "file path not found"));
+                    responder.respond(text_response(
+                        http::StatusCode::NOT_FOUND,
+                        "file path not found",
+                    ));
                     return;
                 }
             };

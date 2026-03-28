@@ -318,7 +318,7 @@ onMounted(async () => {
     void clickSettings();
   });
   unlistenOpenAbout = await listen('app-open-about', () => {
-    void clickSettings(4);
+    void clickSettings(5);
   });
 
   appConfig.value = await getAppConfig();

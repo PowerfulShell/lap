@@ -1,9 +1,9 @@
-#[cfg(target_os = "macos")]
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::menu::MenuEvent;
 #[cfg(target_os = "macos")]
-use tauri::{Emitter, Manager};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Runtime};
+#[cfg(target_os = "macos")]
+use tauri::{Emitter, Manager};
 
 #[cfg(target_os = "macos")]
 pub fn install_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {

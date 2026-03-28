@@ -40,7 +40,11 @@ unsafe extern "C" {
         index: c_int,
         out: *mut LapLibRawImage,
     ) -> c_int;
-    fn lap_libraw_render_preview(raw: *mut c_void, half_size: c_int, out: *mut LapLibRawImage) -> c_int;
+    fn lap_libraw_render_preview(
+        raw: *mut c_void,
+        half_size: c_int,
+        out: *mut LapLibRawImage,
+    ) -> c_int;
     fn lap_libraw_free_buffer(data: *mut u8);
 }
 
@@ -93,7 +97,6 @@ fn orient_image(img: DynamicImage, orientation: i32) -> DynamicImage {
         _ => img,
     }
 }
-
 
 fn is_same_size_embedded_jpeg(thumb: &RawImageBlob, raw_width: u32, raw_height: u32) -> bool {
     if thumb.format != LIBRAW_THUMBNAIL_JPEG {
@@ -394,10 +397,7 @@ pub fn get_raw_preview_image(file_path: &str) -> Result<Option<Vec<u8>>, String>
     }
 }
 
-pub fn get_raw_thumbnail(
-    file_path: &str,
-    thumbnail_size: u32,
-) -> Result<Option<Vec<u8>>, String> {
+pub fn get_raw_thumbnail(file_path: &str, thumbnail_size: u32) -> Result<Option<Vec<u8>>, String> {
     // Always use dcraw_process with half_size for thumbnails.
     // - Guaranteed correct rotation (LibRaw auto-rotates)
     // - Guaranteed correct colors (full WB pipeline)
@@ -444,5 +444,8 @@ pub fn get_raw_thumbnail(
 }
 
 pub fn is_tiff_path(file_path: &str) -> bool {
-    matches!(file_extension(file_path).as_deref(), Some("tif") | Some("tiff"))
+    matches!(
+        file_extension(file_path).as_deref(),
+        Some("tif") | Some("tiff")
+    )
 }

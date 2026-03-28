@@ -30,7 +30,8 @@ mod t_utils;
 mod t_video;
 
 /// The main function is the entry point for the Tauri application.
-fn main() {
+#[tokio::main]
+async fn main() {
     std::panic::set_hook(Box::new(|panic_info| {
         eprintln!("Unhandled panic: {}", panic_info);
     }));
@@ -41,6 +42,11 @@ fn main() {
     // let builder = builder.plugin(tauri_plugin_devtools::init());
 
     let builder = t_protocol::register_protocols(builder);
+    let builder = if let Some(app_key) = option_env!("APTABASE_KEY").filter(|key| !key.is_empty()) {
+        builder.plugin(tauri_plugin_aptabase::Builder::new(app_key).build())
+    } else {
+        builder
+    };
 
     let run_result = builder
         .plugin(tauri_plugin_window_state::Builder::default().build()) // macOS: ~/Library/Application Support/{APP_NAME}/window-state.json

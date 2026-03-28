@@ -7,7 +7,7 @@
       <!-- Sidebar -->
       <div class="w-40 m-1 p-2 bg-base-200/30 flex flex-col rounded-box overflow-y-auto shrink-0 select-none">
         <div
-          v-for="(tab, index) in ['settings.general.title', 'settings.grid_view.title', 'settings.image_view.title', 'settings.image_search.title', 'settings.about.title']"
+          v-for="(tab, index) in ['settings.general.title', 'settings.grid_view.title', 'settings.image_view.title', 'settings.image_search.title', 'settings.privacy.title', 'settings.about.title']"
           :key="index"
           :class="[
             'px-3 py-2 rounded-box cursor-pointer transition-all duration-200 font-medium flex items-center',
@@ -298,8 +298,39 @@
             </div>
           </div>
 
+          <!-- Privacy Tab -->
+          <div v-else-if="config.settings.tabIndex === 4" class="flex flex-col space-y-2">
+            <div class="rounded-box p-2 space-y-2 bg-base-300/30 border border-base-content/5 shadow-sm">
+              <div class="flex items-center gap-2 text-base-content/70">
+                <span class="font-bold uppercase text-[10px] tracking-widest">{{ $t('settings.privacy.section_usage') }}</span>
+              </div>
+              <div class="flex items-center justify-between gap-4 px-1 rounded-box hover:bg-base-100/10 transition-colors duration-200">
+                <div class="flex flex-col gap-0.5 text-sm leading-5">
+                  <div>{{ $t('settings.privacy.enable_analytics') }}</div>
+                  <div class="text-xs text-base-content/30">{{ $t('settings.privacy.enable_analytics_hint') }}</div>
+                </div>
+                <input type="checkbox" class="toggle toggle-primary toggle-sm" v-model="config.settings.telemetry.enabled" />
+              </div>
+            </div>
+
+            <div class="rounded-box p-2 space-y-2 bg-base-300/30 border border-base-content/5 shadow-sm">
+              <div class="flex items-center gap-2 text-base-content/70">
+                <span class="font-bold uppercase text-[10px] tracking-widest">{{ $t('settings.privacy.section_collected') }}</span>
+              </div>
+              <div class="px-1 text-xs leading-6 text-base-content/30">
+                <div>{{ $t('settings.privacy.collected_intro') }}</div>
+                <ul class="mt-2 space-y-1 list-disc pl-5 text-xs text-base-content/30">
+                  <li>{{ $t('settings.privacy.collected_activity') }}</li>
+                  <li>{{ $t('settings.privacy.collected_app_version') }}</li>
+                  <li>{{ $t('settings.privacy.collected_platform') }}</li>
+                  <li>{{ $t('settings.privacy.collected_region') }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
           <!-- About Tab -->
-          <div v-else-if="config.settings.tabIndex === 4" class="py-2">
+          <div v-else-if="config.settings.tabIndex === 5" class="py-2">
              <SettingsAbout />
           </div>
 
@@ -639,6 +670,11 @@ watch(() => config.settings.imageSearch.limit, (newValue) => {
   emit('settings-imageSearchLimit-changed', newValue);
 });
 
+// telemetry settings
+watch(() => config.settings.telemetry.enabled, (newValue) => {
+  emit('settings-telemetryEnabled-changed', newValue);
+});
+
 // face settings
 watch(() => config.settings.face.enabled, (newValue) => {
   emit('settings-faceEnabled-changed', newValue);
@@ -659,7 +695,7 @@ function handleKeyDown(event: KeyboardEvent) {
   switch (event.key) {
     case 'Tab':
       config.settings.tabIndex += 1;
-      config.settings.tabIndex = config.settings.tabIndex % 5; // 5 tabs
+      config.settings.tabIndex = config.settings.tabIndex % 6; // 6 tabs
       break;
     case 'Escape':
       appWindow.close(); // Close the window

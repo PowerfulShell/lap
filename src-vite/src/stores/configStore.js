@@ -84,7 +84,7 @@ export const useConfigStore = defineStore('configStore', {
     },
 
     settings: {
-      tabIndex: 0,               // settings tab index (0: general, 1: grid view, 2: image view, 3: image search, 4: about)
+      tabIndex: 0,               // settings tab index (0: general, 1: grid view, 2: image view, 3: image search, 4: privacy, 5: about)
 
       // general settings
       language: 'en',             // default language
@@ -126,6 +126,11 @@ export const useConfigStore = defineStore('configStore', {
       imageSearch: {
         thresholdIndex: 3,         // image search threshold index (default is Low)
         limit: 1000,               // image search limit
+      },
+
+      telemetry: {
+        enabled: true,             // anonymous usage analytics
+        lastDailyActiveDate: '',   // local day bucket already reported
       },
       
       // face recognition settings
@@ -251,6 +256,15 @@ export const useConfigStore = defineStore('configStore', {
     },
     setImageSearchLimit(imageSearchLimit) {
       this.settings.imageSearch.limit = imageSearchLimit;
+    },
+
+    // telemetry settings
+    setTelemetryEnabled(enabled) {
+      if (!this.settings.telemetry) {
+        this.settings.telemetry = { enabled, lastDailyActiveDate: '' };
+      } else {
+        this.settings.telemetry.enabled = enabled;
+      }
     },
 
     // face recognition settings

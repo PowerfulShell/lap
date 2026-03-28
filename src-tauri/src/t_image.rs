@@ -824,10 +824,8 @@ impl FileImageResultCache {
     }
 
     fn insert(&mut self, file_path: String, signature: (u64, u128), data: Vec<u8>) {
-        self.entries.insert(
-            file_path.clone(),
-            FileImageCacheEntry { signature, data },
-        );
+        self.entries
+            .insert(file_path.clone(), FileImageCacheEntry { signature, data });
         self.order.retain(|item| item != &file_path);
         self.order.push_back(file_path);
 

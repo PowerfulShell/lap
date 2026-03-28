@@ -13,6 +13,7 @@ use reverse_geocoder::ReverseGeocoder;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -658,7 +659,9 @@ pub fn get_folder_files(
         match AFile::get_files_by_folder_id(folder_id) {
             Ok(files) => files
                 .into_iter()
-                .filter(|file| matches_file_type_filter(file_type, file.file_type.unwrap_or_default()))
+                .filter(|file| {
+                    matches_file_type_filter(file_type, file.file_type.unwrap_or_default())
+                })
                 .collect(),
             Err(e) => {
                 eprintln!("Failed to get files from DB: {}", e);
@@ -1026,9 +1029,13 @@ pub struct IndexRecoveryInfo {
 
 fn get_index_trace_path() -> Result<PathBuf, String> {
     let app_dir = crate::t_config::get_app_data_dir()?;
-    fs::create_dir_all(&app_dir)
-        .map_err(|e| format!("Failed to create AppData directory for index recovery: {}", e))?;
-    
+    fs::create_dir_all(&app_dir).map_err(|e| {
+        format!(
+            "Failed to create AppData directory for index recovery: {}",
+            e
+        )
+    })?;
+
     // Make trace library-specific so switching libraries doesn't overwrite it
     let config = crate::t_config::load_app_config().map_err(|e| e.to_string())?;
     let prefix = if config.current_library_id.is_empty() {
@@ -1036,7 +1043,7 @@ fn get_index_trace_path() -> Result<PathBuf, String> {
     } else {
         config.current_library_id
     };
-    
+
     Ok(app_dir.join(format!("index-recovery-{}.json", prefix)))
 }
 
@@ -1062,6 +1069,58 @@ pub fn read_index_trace() -> Option<IndexRecoveryInfo> {
 pub fn clear_index_trace() {
     if let Ok(path) = get_index_trace_path() {
         let _ = fs::remove_file(path);
+    }
+}
+
+fn index_single_file(
+    app_handle: &tauri::AppHandle,
+    album_path: &str,
+    album_id: i64,
+    path_str: &str,
+    ftype: i64,
+    thumbnail_size: u32,
+    all_files_map: &mut HashMap<String, i64>,
+) {
+    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+        let parent_path = Path::new(path_str)
+            .parent()
+            .unwrap_or(Path::new(album_path))
+            .to_string_lossy()
+            .to_string();
+
+        if let Ok(folder) = crate::t_sqlite::AFolder::add_to_db(album_id, &parent_path) {
+            if let Some(folder_id) = folder.id {
+                if let Ok((file, _)) = crate::t_sqlite::AFile::add_to_db(folder_id, path_str, ftype)
+                {
+                    if let Some(file_id) = file.id {
+                        let _ = crate::t_sqlite::AThumb::get_or_create_thumb(
+                            file_id,
+                            path_str,
+                            ftype,
+                            file.e_orientation.unwrap_or(1) as i32,
+                            thumbnail_size,
+                            false,
+                        );
+
+                        let ai_state: State<crate::t_ai::AiState> = app_handle.state();
+                        let _ = crate::t_sqlite::AFile::generate_embedding(&ai_state, file_id);
+
+                        all_files_map.remove(path_str);
+                    } else {
+                        eprintln!(
+                            "Indexed file has no id, skipping follow-up tasks: {}",
+                            path_str
+                        );
+                    }
+                }
+            } else {
+                eprintln!("Indexed folder has no id, skipping file: {}", parent_path);
+            }
+        }
+    }));
+
+    if result.is_err() {
+        eprintln!("Panic while indexing file, skipping: {}", path_str);
     }
 }
 
@@ -1156,47 +1215,15 @@ pub async fn index_album_worker(
                     continue;
                 }
 
-                let parent_path = entry
-                    .path()
-                    .parent()
-                    .unwrap_or(Path::new(&album.path))
-                    .to_string_lossy()
-                    .to_string();
-
-                if let Ok(folder) = crate::t_sqlite::AFolder::add_to_db(album_id, &parent_path) {
-                    if let Some(folder_id) = folder.id {
-                        if let Ok((file, _)) =
-                            crate::t_sqlite::AFile::add_to_db(folder_id, &path_str, ftype)
-                        {
-                            if let Some(file_id) = file.id {
-                                // Generate thumbnail
-                                let _ = crate::t_sqlite::AThumb::get_or_create_thumb(
-                                    file_id,
-                                    &path_str,
-                                    ftype,
-                                    file.e_orientation.unwrap_or(1) as i32,
-                                    thumbnail_size,
-                                    false,
-                                );
-
-                                // Generate embedding
-                                let ai_state: State<crate::t_ai::AiState> = app_handle.state();
-                                let _ =
-                                    crate::t_sqlite::AFile::generate_embedding(&ai_state, file_id);
-
-                                // Remove from map to mark as exists
-                                all_files_map.remove(&path_str);
-                            } else {
-                                eprintln!(
-                                    "Indexed file has no id, skipping follow-up tasks: {}",
-                                    path_str
-                                );
-                            }
-                        }
-                    } else {
-                        eprintln!("Indexed folder has no id, skipping file: {}", parent_path);
-                    }
-                }
+                index_single_file(
+                    app_handle,
+                    &album.path,
+                    album_id,
+                    &path_str,
+                    ftype,
+                    thumbnail_size,
+                    &mut all_files_map,
+                );
 
                 current_progress += 1;
                 let _ = app_handle.emit(
