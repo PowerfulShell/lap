@@ -295,6 +295,27 @@ jobs:
           "VCPKGRS_TRIPLET=x64-windows" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "VCPKGRS_DYNAMIC=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Download DirectML.dll
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP "directml"
+          $zip = Join-Path $work "directml.zip"
+          $pkg = Join-Path $work "pkg"
+          $releaseDir = "src-tauri/target/x86_64-pc-windows-msvc/release"
+
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+
+          Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4" -OutFile $zip
+          Expand-Archive $zip -DestinationPath $pkg -Force
+
+          $dll = Join-Path $pkg "bin/x64-win/DirectML.dll"
+          if (-not (Test-Path $dll)) {
+            throw "DirectML.dll not found in package: $dll"
+          }
+
+          Copy-Item $dll (Join-Path $releaseDir "DirectML.dll") -Force
+
       - name: Build and Sign (Windows x64)
         uses: tauri-apps/tauri-action@v0.5
         env:
