@@ -315,7 +315,7 @@ jobs:
           }
 
           $dest = Join-Path $releaseDir "DirectML.dll"
-          Copy-Item -Path $dll -Destination $dest -Force
+          Copy-Item -Path $dll -Destination $releaseDir -Force
 
       - name: Build and Sign (Windows x64)
         uses: tauri-apps/tauri-action@v0.5
