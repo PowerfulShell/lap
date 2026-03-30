@@ -8,7 +8,7 @@ use ndarray::{Array, Array4};
 use ort::{
     inputs,
     session::{Session, builder::GraphOptimizationLevel},
-    value::Tensor,
+    value::Value,
 };
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
@@ -111,15 +111,18 @@ impl AiEngine {
         )
         .map_err(|e| e.to_string())?;
 
-        let input_ids_value = Tensor::from_array(input_ids_array).map_err(|e| e.to_string())?;
+        let input_ids_value = Value::from_array(input_ids_array).map_err(|e| e.to_string())?;
 
         let outputs = self
             .text_model
             .as_mut()
             .unwrap()
-            .run(inputs![
-                "input_ids" => input_ids_value,
-            ])
+            .run(
+                inputs![
+                    "input_ids" => input_ids_value,
+                ]
+                .map_err(|e| e.to_string())?,
+            )
             .map_err(|e| format!("Inference error: {}", e))?;
 
         let embedding = if let Some(vals) = outputs.get("pooler_output") {
@@ -130,11 +133,11 @@ impl AiEngine {
             &outputs[0]
         };
 
-        let (_, embedding_data) = embedding
+        let embedding_data = embedding
             .try_extract_tensor::<f32>()
             .map_err(|e| format!("Failed to extract tensor: {}", e))?;
 
-        Ok(embedding_data.to_vec())
+        Ok(embedding_data.iter().copied().collect())
     }
 
     pub fn encode_image(&mut self, image_path: &str) -> Result<Vec<f32>, String> {
@@ -159,15 +162,18 @@ impl AiEngine {
     }
 
     fn run_vision_model(&mut self, image_input: Array4<f32>) -> Result<Vec<f32>, String> {
-        let image_input_value = Tensor::from_array(image_input).map_err(|e| e.to_string())?;
+        let image_input_value = Value::from_array(image_input).map_err(|e| e.to_string())?;
 
         let outputs = self
             .vision_model
             .as_mut()
             .unwrap()
-            .run(inputs![
-                "pixel_values" => image_input_value,
-            ])
+            .run(
+                inputs![
+                    "pixel_values" => image_input_value,
+                ]
+                .map_err(|e| e.to_string())?,
+            )
             .map_err(|e| format!("Inference error: {}", e))?;
 
         let embedding = if let Some(vals) = outputs.get("pooler_output") {
@@ -178,11 +184,11 @@ impl AiEngine {
             &outputs[0]
         };
 
-        let (_, embedding_data) = embedding
+        let embedding_data = embedding
             .try_extract_tensor::<f32>()
             .map_err(|e| format!("Failed to extract tensor: {}", e))?;
 
-        Ok(embedding_data.to_vec())
+        Ok(embedding_data.iter().copied().collect())
     }
 
     fn preprocess_image(&self, path: &str) -> Result<Array4<f32>, String> {
