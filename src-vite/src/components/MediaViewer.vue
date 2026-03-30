@@ -8,19 +8,18 @@
   >
     <!-- Toolbar -->
     <div 
-      v-if="showToolbar"
+      v-if="showTitleBar"
       id="responsiveDiv"
       :class="computedToolbarClass"
-      :style="showWindowControls && isWin ? { paddingLeft: '144px', paddingRight: '144px' } : undefined"
       data-tauri-drag-region
     >
       <!-- App Icon + Title (left side, ImageViewer on Windows) -->
-      <div v-if="isWin && mode === 2" class="absolute left-0 top-0 h-10 flex items-center px-3 select-none" data-tauri-drag-region>
+      <!-- <div v-if="isWin && mode === 2" class="absolute left-0 top-0 h-10 flex items-center px-3 select-none" data-tauri-drag-region>
         <img :src="iconLogo" class="w-5 h-5 mr-2 rounded" data-tauri-drag-region />
         <span class="text-nowrap text-sm text-base-content/70 overflow-hidden whitespace-pre text-ellipsis" data-tauri-drag-region>
           {{ $t('image_viewer.title') }}
         </span>
-      </div>
+      </div> -->
       <div ref="buttonsRef" class="flex items-center space-x-1">
         <TButton
           :icon="IconPrev"
@@ -203,7 +202,7 @@
     </div>
 
     <!-- Window Control Buttons (top-right) -->
-    <div v-if="showToolbar && showWindowControls && isWin" class="absolute top-0 right-0 z-90 flex items-center" @mousedown.stop>
+    <div v-if="showTitleBar && showWindowControls && isWin" class="absolute top-0 right-0 z-90 flex items-center" @mousedown.stop>
       <IconWinMinus 
         class="p-3 w-12 h-10 text-base-content/70 hover:text-base-content hover:bg-base-100 transition-colors duration-300 cursor-pointer" 
         @click.stop="minimizeWindow" 
@@ -622,6 +621,10 @@ const quickViewStatusBadges = computed(() => {
 
 const showStatusBadges = computed(() => {
   return !props.isFullScreen && (props.mode === 0 || props.mode === 1 || props.mode === 2);
+});
+
+const showTitleBar = computed(() => {
+  return props.showToolbar && !(isWin && props.mode === 2 && props.isFullScreen);
 });
 let resizeObserver: ResizeObserver | null = null;
 const updateNavButtonsTop = () => {
