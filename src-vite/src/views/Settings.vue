@@ -103,7 +103,7 @@
               <div class="flex items-center gap-2 text-base-content/70">
                 <span class="font-bold uppercase text-[10px] tracking-widest">{{ $t('settings.grid_view.section_layout') }}</span>
               </div>
-              <div class="flex items-center justify-between p-1 rounded-box hover:bg-base-100/10 transition-colors duration-200">
+              <div class="flex items-center justify-between px-1 rounded-box hover:bg-base-100/10 transition-colors duration-200">
                 <div class="flex flex-col gap-0.5 text-sm leading-5">
                   <div>{{ $t('settings.grid_view.style') }}</div>
                 </div>
@@ -161,6 +161,16 @@
               </div>
               <div class="flex items-center justify-between px-1 rounded-box hover:bg-base-100/10 transition-colors duration-200">
                 <div class="flex flex-col gap-0.5 text-sm leading-5">
+                  <div>{{ $t('settings.image_view.mouse_wheel') }}</div>
+                </div>
+                <select class="select select-bordered select-sm min-w-32" v-model="config.settings.mouseWheelMode">
+                  <option v-for="(item, index) in wheelOptions" :key="index" :value="item.value">
+                    {{ item.label }}
+                  </option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between px-1 rounded-box hover:bg-base-100/10 transition-colors duration-200">
+                <div class="flex flex-col gap-0.5 text-sm leading-5">
                   <div>{{ $t('settings.image_view.navigator_view') }}</div>
                 </div>
                 <select class="select select-bordered select-sm min-w-32" v-model="config.settings.navigatorViewMode">
@@ -183,7 +193,7 @@
                    <option v-for="(option, index) in slideShowTransitionOptions" :key="index" :value="option.value">{{ option.label }}</option>
                 </select>
               </div>
-              <div class="flex items-center justify-between px-1 rounded-box hover:bg-base-100/10 transition-colors duration-200">
+              <div class="flex items-center justify-between px-1 h-8 rounded-box hover:bg-base-100/10 transition-colors duration-200">
                 <div class="flex flex-col gap-0.5 text-sm leading-5">
                   <div>{{ $t('settings.image_view.auto_play_video') }}</div>
                 </div>
@@ -425,13 +435,13 @@ const externalVideoAppName = computed(() =>
 );
 
 // Define the wheel options using computed to react to language changes
-// const wheelOptions = computed(() => {
-//   const options = localeMsg.value.settings.image_view.mouse_wheel_options; // returns an array
-//   return [
-//     { label: options[0], value: 0 },  // 0: previous / next
-//     { label: options[1], value: 1 },  // 1: zoom in / out
-//   ];
-// });
+const wheelOptions = computed(() => {
+  const options = localeMsg.value.settings.image_view.mouse_wheel_options; // returns an array
+  return [
+    { label: options[0], value: 0 },  // 0: previous / next
+    { label: options[1], value: 1 },  // 1: zoom in / out
+  ];
+});
 
 // Define the grid scaling options
 const gridScalingOptions = computed(() => {
@@ -646,9 +656,9 @@ watch(() => config.settings.grid.previewPosition, (newValue) => {
 });
 
 // image viewer settings
-// watch(() => config.settings.mouseWheelMode, (newValue) => {
-//   emit('settings-mouseWheelMode-changed', newValue);
-// });
+watch(() => config.settings.mouseWheelMode, (newValue) => {
+  emit('settings-mouseWheelMode-changed', newValue);
+});
 watch(() => config.settings.navigatorViewMode, (newValue) => {
   emit('settings-navigatorViewMode-changed', newValue);
 });

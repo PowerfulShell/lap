@@ -229,9 +229,9 @@ export const useConfigStore = defineStore('configStore', {
     setFilmStripViewPreviewPosition(filmStripViewPreviewPosition) {
       this.settings.grid.previewPosition = filmStripViewPreviewPosition;
     },
-    // setMouseWheelMode(mouseWheelMode) {
-    //   this.settings.mouseWheelMode = mouseWheelMode;
-    // },
+    setMouseWheelMode(mouseWheelMode) {
+      this.settings.mouseWheelMode = mouseWheelMode;
+    },
     setSlideShowInterval(slideShowInterval) {
       this.settings.slideShowInterval = slideShowInterval;
     },
