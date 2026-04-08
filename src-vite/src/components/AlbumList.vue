@@ -27,7 +27,6 @@
             :tooltip="$t('menu.album.add')"
             @click="clickNewAlbum"
           />
-          <ContextMenu :menuItems="panelMenuItems" :iconMenu="IconMore" :smallIcon="true" />
         </template>
       </div>
       
@@ -327,6 +326,11 @@ const getMoreMenuItems = (album: any) => {
     {
       label: "-",   // separator
       action: () => {}
+    },
+    {
+      label: localeMsg.value.menu.album.reorder || 'Reorder',
+      icon: IconDragHandle,
+      action: () => clickReorder(),
     },
     {
       label: localeMsg.value.menu.album.remove,
