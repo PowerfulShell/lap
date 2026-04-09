@@ -9,6 +9,7 @@ use crate::t_sqlite::{AFile, Album};
 use chrono::{DateTime, Local, TimeZone};
 use once_cell::sync::Lazy;
 use pinyin::ToPinyin;
+use rayon::prelude::*;
 use reverse_geocoder::ReverseGeocoder;
 use std::collections::HashMap;
 use std::fs;
@@ -1169,15 +1170,23 @@ pub fn clear_index_trace() {
     }
 }
 
+#[derive(Clone)]
+struct ThumbnailTask {
+    file_id: i64,
+    file_path: String,
+    file_type: i64,
+    orientation: i32,
+    thumbnail_size: u32,
+}
+
 fn index_single_file(
-    app_handle: &tauri::AppHandle,
     album_path: &str,
     album_id: i64,
     path_str: &str,
     ftype: i64,
     thumbnail_size: u32,
     all_files_map: &mut HashMap<String, i64>,
-) {
+) -> Option<ThumbnailTask> {
     let result = panic::catch_unwind(AssertUnwindSafe(|| {
         let parent_path = Path::new(path_str)
             .parent()
@@ -1190,19 +1199,14 @@ fn index_single_file(
                 if let Ok((file, _)) = crate::t_sqlite::AFile::add_to_db(folder_id, path_str, ftype)
                 {
                     if let Some(file_id) = file.id {
-                        let _ = crate::t_sqlite::AThumb::get_or_create_thumb(
-                            file_id,
-                            path_str,
-                            ftype,
-                            file.e_orientation.unwrap_or(1) as i32,
-                            thumbnail_size,
-                            false,
-                        );
-
-                        let ai_state: State<crate::t_ai::AiState> = app_handle.state();
-                        let _ = crate::t_sqlite::AFile::generate_embedding(&ai_state, file_id);
-
                         all_files_map.remove(path_str);
+                        return Some(ThumbnailTask {
+                            file_id,
+                            file_path: path_str.to_string(),
+                            file_type: ftype,
+                            orientation: file.e_orientation.unwrap_or(1) as i32,
+                            thumbnail_size,
+                        });
                     } else {
                         eprintln!(
                             "Indexed file has no id, skipping follow-up tasks: {}",
@@ -1214,10 +1218,15 @@ fn index_single_file(
                 eprintln!("Indexed folder has no id, skipping file: {}", parent_path);
             }
         }
+        None
     }));
 
-    if result.is_err() {
-        eprintln!("Panic while indexing file, skipping: {}", path_str);
+    match result {
+        Ok(task) => task,
+        Err(_) => {
+            eprintln!("Panic while indexing file, skipping: {}", path_str);
+            None
+        }
     }
 }
 
@@ -1271,6 +1280,7 @@ pub async fn index_album_worker(
     // 4. Traverse and index
     let mut is_cancelled = false;
     let mut traversed_count = 0u64;
+    let mut thumbnail_tasks: Vec<ThumbnailTask> = Vec::new();
     for entry in WalkDir::new(&album.path).into_iter().filter_map(Result::ok) {
         // Check cancellation
         if let Some(&true) = cancellation_token.lock().unwrap().get(&album_id) {
@@ -1312,34 +1322,66 @@ pub async fn index_album_worker(
                     continue;
                 }
 
-                index_single_file(
-                    app_handle,
+                if let Some(task) = index_single_file(
                     &album.path,
                     album_id,
                     &path_str,
                     ftype,
                     thumbnail_size,
                     &mut all_files_map,
-                );
-
-                current_progress += 1;
-                let _ = app_handle.emit(
-                    "index_progress",
-                    ProgressPayload {
-                        album_id,
-                        current: current_progress,
-                        total: total_files,
-                    },
-                );
-
-                // update progress to db every 50 items
-                if current_progress % 50 == 0 {
-                    let _ = Album::update_progress(album_id, current_progress, total_files);
+                ) {
+                    thumbnail_tasks.push(task);
                 }
 
                 traversed_count += 1;
             }
         }
+    }
+
+    if !thumbnail_tasks.is_empty() {
+        let completed_count = thumbnail_tasks
+            .par_iter()
+            .map(|task| {
+                let _ = crate::t_sqlite::AThumb::get_or_create_thumb(
+                    task.file_id,
+                    &task.file_path,
+                    task.file_type,
+                    task.orientation,
+                    task.thumbnail_size,
+                    false,
+                );
+                task.file_id
+            })
+            .collect::<Vec<_>>();
+
+        let ai_state: State<crate::t_ai::AiState> = app_handle.state();
+        for file_id in &completed_count {
+            let _ = crate::t_sqlite::AFile::generate_embedding(&ai_state, *file_id);
+        }
+
+        current_progress += completed_count.len() as u64;
+        let _ = app_handle.emit(
+            "index_progress",
+            ProgressPayload {
+                album_id,
+                current: current_progress,
+                total: total_files,
+            },
+        );
+        let _ = Album::update_progress(album_id, current_progress, total_files);
+    }
+
+    if current_progress < total_files {
+        current_progress = total_files;
+        let _ = app_handle.emit(
+            "index_progress",
+            ProgressPayload {
+                album_id,
+                current: current_progress,
+                total: total_files,
+            },
+        );
+        let _ = Album::update_progress(album_id, current_progress, total_files);
     }
 
     clear_index_trace();

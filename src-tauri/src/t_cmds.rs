@@ -111,6 +111,16 @@ pub fn get_all_albums() -> Result<Vec<Album>, String> {
     Album::get_all_albums().map_err(|e| format!("Error while getting all albums: {}", e))
 }
 
+/// batch-generate thumbnails for a directory into an output folder
+#[tauri::command]
+pub fn generate_directory_thumbnails(
+    dir_path: &str,
+    output_dir: &str,
+    thumbnail_size: u32,
+) -> Result<t_image::BatchThumbnailStats, String> {
+    t_image::generate_directory_thumbnails(dir_path, output_dir, thumbnail_size)
+}
+
 /// get one album
 #[tauri::command]
 pub fn get_album(album_id: i64) -> Result<Album, String> {
