@@ -8,6 +8,9 @@ use arboard::Clipboard;
 use exif::{In, Reader, Tag};
 use fast_image_resize as fir;
 use image::{DynamicImage, GenericImageView, ImageReader};
+use little_exif::filetype::FileExtension;
+use little_exif::ifd::ExifTagGroup;
+use little_exif::metadata::Metadata as LittleExifMetadata;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use rusqlite::Result;
@@ -17,14 +20,13 @@ use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Cursor;
-use std::panic;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
+use uuid::Uuid;
 use walkdir::WalkDir;
-
-#[cfg(target_os = "macos")]
-use std::process::Command;
 
 use crate::{t_jxl, t_libraw, t_utils};
 #[cfg(not(target_os = "macos"))]
@@ -579,20 +581,275 @@ pub fn edit_image(params: EditParams) -> bool {
         };
 
         let quality = params.quality.unwrap_or(80);
-
-        if format == image::ImageFormat::Jpeg {
+        let save_ok = if format == image::ImageFormat::Jpeg {
             if let Ok(file) = std::fs::File::create(path) {
                 let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(file, quality);
-                let _ = encoder.encode_image(&img);
-                return true;
+                encoder.encode_image(&img).is_ok()
+            } else {
+                false
             }
         } else {
-            return img.save_with_format(path, format).is_ok();
+            img.save_with_format(path, format).is_ok()
+        };
+
+        if !save_ok {
+            return false;
         }
 
-        return false;
+        if format == image::ImageFormat::Jpeg {
+            let metadata_backup_path = match prepare_metadata_backup_path(
+                &params.source_file_path,
+                &params.dest_file_path,
+            ) {
+                Ok(path) => path,
+                Err(_) => return false,
+            };
+
+            let metadata_source = metadata_backup_path
+                .as_ref()
+                .map(|p| p.as_path())
+                .unwrap_or_else(|| Path::new(&params.source_file_path));
+
+            if let Err(_) = copy_metadata_to_output(metadata_source, path) {
+                if metadata_backup_path.is_some() {
+                    let _ = fs::copy(metadata_source, path);
+                } else {
+                    let _ = fs::remove_file(path);
+                }
+                cleanup_metadata_backup(&metadata_backup_path);
+                return false;
+            }
+
+            cleanup_metadata_backup(&metadata_backup_path);
+        }
+
+        return true;
     }
     false
+}
+
+fn prepare_metadata_backup_path(source_file_path: &str, dest_file_path: &str) -> Result<Option<PathBuf>, String> {
+    if source_file_path != dest_file_path {
+        return Ok(None);
+    }
+
+    let source_path = Path::new(source_file_path);
+    let extension = source_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("tmp");
+    let backup_path = std::env::temp_dir().join(format!(
+        "lap-edit-metadata-{}.{}",
+        Uuid::new_v4(),
+        extension
+    ));
+
+    fs::copy(source_path, &backup_path)
+        .map_err(|e| format!("Failed to create metadata backup: {}", e))?;
+
+    Ok(Some(backup_path))
+}
+
+fn cleanup_metadata_backup(path: &Option<PathBuf>) {
+    if let Some(path) = path {
+        let _ = fs::remove_file(path);
+    }
+}
+
+/// Copies metadata from source to destination.
+/// Prefers little_exif for JPEGs and falls back to kamadak-exif for RAW formats.
+fn copy_metadata_to_output(source_path: &Path, dest_path: &Path) -> Result<(), String> {
+    let source_path_buf = source_path.to_path_buf();
+
+    // Check file type to detect RAW formats
+    let file_type = crate::t_utils::get_file_type(source_path.to_str().unwrap_or_default()).unwrap_or(0);
+    let is_raw = file_type == 3;
+
+    let mut little_exif_worked = false;
+    let mut little_exif_error = String::new();
+
+    if !is_raw {
+        // Use little_exif for standard formats (JPEG/WebP).
+        // Wrapped in catch_unwind as little_exif can panic on malformed data.
+        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            LittleExifMetadata::new_from_path(&source_path_buf)
+        }));
+
+        match result {
+            Ok(Ok(mut metadata)) => {
+                sanitize_edit_output_metadata(&mut metadata);
+                if let Err(e) = metadata.write_to_file(dest_path) {
+                    little_exif_error = format!("little_exif write failed: {}", e);
+                } else {
+                    little_exif_worked = true;
+                }
+            }
+            Ok(Err(e)) => {
+                little_exif_error = format!("little_exif read failed: {}", e);
+            }
+            Err(_) => {
+                little_exif_error = "little_exif panicked".to_string();
+            }
+        }
+    }
+
+    if little_exif_worked {
+        return Ok(());
+    }
+
+    // Fallback: use kamadak-exif which has broader RAW support
+    match copy_metadata_from_raw_to_jpeg(source_path, dest_path) {
+        Ok(()) => Ok(()),
+        Err(raw_error) => {
+            if is_raw {
+                Err(format!("RAW metadata extraction failed: {}", raw_error))
+            } else {
+                Err(format!(
+                    "Metadata copy failed. little_exif: {}; kamadak: {}",
+                    little_exif_error, raw_error
+                ))
+            }
+        }
+    }
+}
+
+/// Removes tags that shouldn't be copied to the edited output (like original orientation and dimensions).
+fn sanitize_edit_output_metadata(metadata: &mut LittleExifMetadata) {
+    metadata.remove_tag_by_hex_group(0x0112, ExifTagGroup::GENERIC); // Orientation
+    metadata.remove_tag_by_hex_group(0x0100, ExifTagGroup::GENERIC); // ImageWidth
+    metadata.remove_tag_by_hex_group(0x0101, ExifTagGroup::GENERIC); // ImageLength
+    metadata.remove_tag_by_hex_group(0xA002, ExifTagGroup::EXIF); // PixelXDimension
+    metadata.remove_tag_by_hex_group(0xA003, ExifTagGroup::EXIF); // PixelYDimension
+    metadata.remove_tag_by_hex_group(0x0201, ExifTagGroup::GENERIC); // JPEGInterchangeFormat
+    metadata.remove_tag_by_hex_group(0x0202, ExifTagGroup::GENERIC); // JPEGInterchangeFormatLength
+}
+
+/// Filter for EXIF fields to copy. 
+/// We mainly copy PRIMARY IFD and exclude pointers or hardware-specific tags that
+/// might be invalidated by the image edit (like StripOffsets or Orientation).
+fn should_copy_exif_field(field: &exif::Field) -> bool {
+    if field.ifd_num != In::PRIMARY {
+        return false;
+    }
+
+    !matches!(
+        field.tag,
+        Tag::ExifIFDPointer
+            | Tag::GPSInfoIFDPointer
+            | Tag::InteropIFDPointer
+            | Tag::StripOffsets
+            | Tag::StripByteCounts
+            | Tag::TileOffsets
+            | Tag::TileByteCounts
+            | Tag::JPEGInterchangeFormat
+            | Tag::JPEGInterchangeFormatLength
+            | Tag::Orientation
+            | Tag::ImageWidth
+            | Tag::ImageLength
+            | Tag::PixelXDimension
+            | Tag::PixelYDimension
+    )
+}
+
+/// Extracts EXIF from a (potentially RAW) source and injects it into a JPEG destination.
+/// Includes a three-pass reduction logic to ensure metadata fits within the 64KB JPEG segment limit.
+fn copy_metadata_from_raw_to_jpeg(source_path: &Path, dest_path: &Path) -> Result<(), String> {
+    let file =
+        File::open(source_path).map_err(|e| format!("Failed to open source metadata file: {}", e))?;
+    let mut reader = BufReader::new(file);
+    
+    // Try read_from_container first (handles JPEG/TIFF/RAW-TIFF)
+    let exif = match Reader::new().read_from_container(&mut reader) {
+        Ok(exif) => exif,
+        Err(_) => {
+            // Fallback: try raw TIFF read (some RAWs are just TIFF structures)
+            let data = fs::read(source_path).map_err(|e| e.to_string())?;
+            match Reader::new().read_raw(data) {
+                Ok(exif) => exif,
+                Err(_) => return Ok(()), // Truly no metadata found or unreadable, skip
+            }
+        }
+    };
+
+    // Helper to attempt encoding a set of fields and check if it fits in 64KB
+    let encode_and_check = |fields: Vec<&exif::Field>| -> Option<Vec<u8>> {
+        let mut writer = exif::experimental::Writer::new();
+        for field in fields {
+            writer.push_field(field);
+        }
+        let mut tiff_cursor = Cursor::new(Vec::new());
+        if writer.write(&mut tiff_cursor, exif.little_endian()).is_ok() {
+            let data = tiff_cursor.into_inner();
+            if data.len() <= 65527 { // JPEG APP1 max is 65535, minus 8 bytes header
+                return Some(data);
+            }
+        }
+        None
+    };
+
+    // Pass 1: Attempt to copy all standard fields
+    let initial_fields: Vec<&exif::Field> = exif.fields().filter(|f| should_copy_exif_field(f)).collect();
+    let mut exif_data = encode_and_check(initial_fields);
+
+    // Pass 2: If too large, strip typically large vendor blocks (MakerNote, UserComment)
+    if exif_data.is_none() {
+        let reduced_fields: Vec<&exif::Field> = exif.fields()
+            .filter(|f| should_copy_exif_field(f))
+            .filter(|f| !matches!(f.tag, Tag::MakerNote | Tag::UserComment))
+            .collect();
+        exif_data = encode_and_check(reduced_fields);
+    }
+
+    // Pass 3: If still too large, keep only the most essential photography and GPS tags
+    if exif_data.is_none() {
+        let essential_fields: Vec<&exif::Field> = exif.fields()
+            .filter(|f| should_copy_exif_field(f))
+            .filter(|f| matches!(f.tag, 
+                Tag::Make | Tag::Model | Tag::DateTimeOriginal | Tag::DateTimeDigitized |
+                Tag::ExposureTime | Tag::FNumber | Tag::PhotographicSensitivity | Tag::FocalLength |
+                Tag::LensMake | Tag::LensModel | Tag::ExposureBiasValue |
+                Tag::GPSLatitudeRef | Tag::GPSLatitude | Tag::GPSLongitudeRef | Tag::GPSLongitude | Tag::GPSAltitudeRef | Tag::GPSAltitude
+            ))
+            .collect();
+        exif_data = encode_and_check(essential_fields);
+    }
+
+    if let Some(data) = exif_data {
+        write_jpeg_exif_block(dest_path, &data)
+    } else {
+        eprintln!("EXIF metadata still too large even after stripping, skipping");
+        Ok(())
+    }
+}
+
+/// Manually injects a TIFF-formatted EXIF block into a JPEG file's APP1 segment.
+/// This is used when high-level libraries (like little_exif) fail or are not applicable.
+fn write_jpeg_exif_block(dest_path: &Path, exif_tiff_data: &[u8]) -> Result<(), String> {
+    let mut file_buffer =
+        fs::read(dest_path).map_err(|e| format!("Failed to read destination JPEG: {}", e))?;
+
+    // Clear existing metadata using little_exif if possible
+    let _ = LittleExifMetadata::clear_metadata(&mut file_buffer, FileExtension::JPEG);
+
+    if file_buffer.len() < 2 || file_buffer[0] != 0xFF || file_buffer[1] != 0xD8 {
+        return Err("Destination file is not a valid JPEG".to_string());
+    }
+
+    // Prepare APP1 segment: FF E1 + Length + "Exif\0\0" + TIFF data
+    let app1_length = (2 + 6 + exif_tiff_data.len()) as u16;
+    let mut app1_segment = Vec::with_capacity(2 + 2 + 6 + exif_tiff_data.len());
+    app1_segment.extend_from_slice(&[0xFF, 0xE1]);
+    app1_segment.extend_from_slice(&app1_length.to_be_bytes());
+    app1_segment.extend_from_slice(b"Exif\0\0");
+    app1_segment.extend_from_slice(exif_tiff_data);
+
+    // Reconstruct file: FF D8 + New APP1 + Remainder of file
+    let mut output = Vec::with_capacity(file_buffer.len() + app1_segment.len());
+    output.extend_from_slice(&file_buffer[..2]);
+    output.extend_from_slice(&app1_segment);
+    output.extend_from_slice(&file_buffer[2..]);
+
+    fs::write(dest_path, output).map_err(|e| format!("Failed to write destination JPEG: {}", e))
 }
 
 /// copy an image to clipboard
