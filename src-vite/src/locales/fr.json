@@ -1001,6 +1001,7 @@
         "download_finished": "Téléchargement terminé. Installation...",
         "update_installed": "Mise à jour installée. Redémarrage...",
         "update_installed_waiting_restart": "Mise à jour installée. Veuillez redémarrer l'application.",
+        "release_note": "Notes de version",
         "restart": "Redémarrer",
         "failed_check": "Échec de la vérification des mises à jour",
         "failed_install": "Échec de l'installation de la mise à jour"

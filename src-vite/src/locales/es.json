@@ -1001,6 +1001,7 @@
         "download_finished": "Descarga finalizada. Instalando...",
         "update_installed": "Actualización instalada. Reiniciando...",
         "update_installed_waiting_restart": "Actualización instalada. Reinicia la aplicación.",
+        "release_note": "Notas de la versión",
         "restart": "Reiniciar",
         "failed_check": "Error al buscar actualizaciones",
         "failed_install": "Error al instalar la actualización"

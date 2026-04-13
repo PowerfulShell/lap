@@ -1,10 +1,12 @@
 import { computed, ref, type Ref } from 'vue';
 import { check, type Update, type DownloadEvent } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { openExternalUrl } from '@/common/api';
 import { useToast, type ToastPlacement } from '@/common/toast';
 
 const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 const UPDATE_CHECK_KEY = 'lap_last_update_check';
+const UPDATE_RELEASE_NOTE_KEY = 'lap_update_release_note_version';
 const UPDATE_CHECK_TIMEOUT_MS = 30_000;
 
 function extractRawErrorMessage(error: unknown) {
@@ -53,6 +55,7 @@ export function useAppUpdater(localeMsg: Ref<any>, options: AppUpdaterOptions = 
   const isInstallingUpdate = ref(false);
   const isDownloadingUpdate = ref(false);
   const isUpdateReadyToRestart = ref(false);
+  const isReleaseNoteVisible = ref(false);
   const updateVersion = ref('');
   const downloadPercent = ref<number | null>(null);
   let downloadTotalBytes = 0;
@@ -60,6 +63,14 @@ export function useAppUpdater(localeMsg: Ref<any>, options: AppUpdaterOptions = 
   let currentUpdate: Update | null = null;
 
   const restartLabel = computed(() => localeMsg.value.settings.about.auto_update.restart);
+  const releaseNoteLabel = computed(() => localeMsg.value.settings.about.auto_update.release_note);
+  const releaseNoteVersion = computed(() => {
+    return isReleaseNoteVisible.value ? localStorage.getItem(UPDATE_RELEASE_NOTE_KEY) || '' : '';
+  });
+  const releaseNoteUrl = computed(() => {
+    if (!releaseNoteVersion.value) return '';
+    return `https://github.com/julyx10/lap/releases/tag/v${releaseNoteVersion.value}`;
+  });
   const downloadProgressLabel = computed(() => {
     if (downloadPercent.value === null) {
       return localeMsg.value.settings.about.auto_update.downloading_update;
@@ -83,6 +94,9 @@ export function useAppUpdater(localeMsg: Ref<any>, options: AppUpdaterOptions = 
     if (isUpdateReadyToRestart.value) {
       return restartLabel.value;
     }
+    if (isReleaseNoteVisible.value) {
+      return releaseNoteLabel.value;
+    }
     if (updateAvailable.value && updateVersion.value) {
       return localeMsg.value.settings.about.auto_update.new_version_available.replace('{version}', updateVersion.value);
     }
@@ -94,12 +108,13 @@ export function useAppUpdater(localeMsg: Ref<any>, options: AppUpdaterOptions = 
     if (isInstallingUpdate.value) return localeMsg.value.settings.about.auto_update.installing;
     if (isCheckingUpdate.value) return localeMsg.value.settings.about.auto_update.checking;
     if (isUpdateReadyToRestart.value) return restartLabel.value;
+    if (isReleaseNoteVisible.value) return releaseNoteLabel.value;
     if (updateAvailable.value) return localeMsg.value.settings.about.auto_update.update;
     return localeMsg.value.settings.about.auto_update.check;
   });
 
   const isUpdateActionEnabled = computed(() =>
-    updateAvailable.value || isUpdateReadyToRestart.value
+    updateAvailable.value || isUpdateReadyToRestart.value || isReleaseNoteVisible.value
   );
 
   function resetDownloadProgress() {
@@ -116,8 +131,13 @@ export function useAppUpdater(localeMsg: Ref<any>, options: AppUpdaterOptions = 
   }
 
   function markUpdateReadyToRestart() {
+    localStorage.setItem(UPDATE_RELEASE_NOTE_KEY, updateVersion.value);
     resetPendingUpdateState();
     isUpdateReadyToRestart.value = true;
+  }
+
+  function loadReleaseNoteState() {
+    isReleaseNoteVisible.value = !!localStorage.getItem(UPDATE_RELEASE_NOTE_KEY);
   }
 
   async function checkWithTimeout() {
@@ -245,14 +265,23 @@ export function useAppUpdater(localeMsg: Ref<any>, options: AppUpdaterOptions = 
       await installAvailableUpdate();
       return;
     }
+    if (isReleaseNoteVisible.value && releaseNoteUrl.value) {
+      await openExternalUrl(releaseNoteUrl.value);
+      localStorage.removeItem(UPDATE_RELEASE_NOTE_KEY);
+      isReleaseNoteVisible.value = false;
+      return;
+    }
     await checkForUpdates(true);
   }
+
+  loadReleaseNoteState();
 
   return {
     updateAvailable,
     isCheckingUpdate,
     isInstallingUpdate,
     isUpdateReadyToRestart,
+    isReleaseNoteVisible,
     updateVersion,
     isDownloadingUpdate,
     downloadPercent,

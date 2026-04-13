@@ -1001,6 +1001,7 @@
         "download_finished": "下载完成。正在安装...",
         "update_installed": "更新已安装。正在重启...",
         "update_installed_waiting_restart": "更新已安装。请重启应用。",
+        "release_note": "更新说明",
         "restart": "重启",
         "failed_check": "检查更新失败",
         "failed_install": "安装更新失败"

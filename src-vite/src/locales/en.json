@@ -1001,6 +1001,7 @@
         "download_finished": "Download finished. Installing...",
         "update_installed": "Update installed. Restarting...",
         "update_installed_waiting_restart": "Update installed. Please restart the app.",
+        "release_note": "Release Note",
         "restart": "Restart",
         "failed_check": "Failed to check for updates",
         "failed_install": "Failed to install update"

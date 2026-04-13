@@ -91,7 +91,7 @@
               </ContextMenu>
 
               <button
-                v-if="updateAvailable || isInstallingUpdate || isUpdateReadyToRestart"
+                v-if="updateAvailable || isInstallingUpdate || isUpdateReadyToRestart || isReleaseNoteVisible"
                 class="badge badge-sm border-0 px-2 py-2 font-medium transition-colors"
                 :class="isUpdateActionEnabled ? 'badge-primary cursor-pointer' : 'badge-neutral/60 cursor-default'"
                 :disabled="isInstallingUpdate"
@@ -248,6 +248,7 @@ const {
   isCheckingUpdate,
   isInstallingUpdate,
   isUpdateReadyToRestart,
+  isReleaseNoteVisible,
   updateButtonTooltip,
   updateButtonText,
   isUpdateActionEnabled,
