@@ -1,246 +1,309 @@
 <template>
-  <div ref="videoContainer" class="relative w-full h-full overflow-hidden bg-black">
-    <video
-      v-if="videoUrl || isPreparing"
-      :id="playerId"
-      class="video-js vjs-big-play-centered"
-      playsinline
-    ></video>
+  <div ref="videoContainer" class="relative w-full h-full overflow-hidden cursor-pointer bg-black" @wheel.prevent="handleWheel">
+    <TransitionGroup :name="transitionName" @after-leave="handleTransitionEnd">
+      <div
+        v-for="index in [0, 1]"
+        v-show="activeLayer === index"
+        :key="`video-layer-${index}`"
+        class="slide-wrapper absolute inset-0 w-full h-full pointer-events-none overflow-hidden"
+      >
+        <div class="w-full h-full pointer-events-auto overflow-hidden flex items-center justify-center">
+          <!-- The video.js target -->
+          <div 
+            v-if="videoUrl && (activeLayer === index || isTransitioning)"
+            :id="`vjs-container-${index}`"
+            class="vjs-custom-container"
+            :class="{ 'no-transition': noTransition }"
+            :style="surfaceStyle"
+          >
+            <video
+              :id="`vjs-player-${index}`"
+              class="video-js vjs-big-play-centered vjs-fluid"
+            ></video>
+          </div>
+        </div>
+      </div>
+    </TransitionGroup>
 
-    <div v-if="isPreparing && currentStage === 'remux'" class="absolute inset-0 flex items-center justify-center bg-black/60 z-20 pointer-events-none">
+    <!-- Loading Overlay -->
+    <div v-if="isPreparing" class="absolute inset-0 flex items-center justify-center bg-black/40 z-20">
       <div class="flex flex-col items-center gap-3">
         <span class="loading loading-spinner loading-lg text-primary"></span>
-        <span class="text-white/70 text-sm font-medium">{{ $t('video.preparing') || '正在处理视频...' }}</span>
+        <span class="text-white/70 text-sm font-medium">{{ $t('video.preparing') || 'Preparing video...' }}</span>
       </div>
     </div>
 
-    <div v-if="isPreparing && currentStage === 'transcode'" class="absolute inset-0 flex items-center justify-center bg-black/60 z-20 pointer-events-none">
-      <div class="flex flex-col items-center gap-3">
-        <span class="loading loading-spinner loading-lg text-primary"></span>
-        <span class="text-white/70 text-sm font-medium">{{ $t('video.transcoding') || '正在转码视频...' }}</span>
-      </div>
-    </div>
-
-    <div v-if="isUnsupported" class="absolute inset-0 flex flex-col items-center justify-center text-white/70 z-30 bg-black/80 px-6 text-center">
+    <!-- Error Overlay -->
+    <div v-if="hasError" class="absolute inset-0 flex flex-col items-center justify-center text-base-content/30 z-10 bg-black/20">
       <IconVideoSlash class="w-12 h-12 mb-3" />
-      <div class="max-w-md whitespace-pre-line">{{ unsupportedMessage }}</div>
-      <div v-if="canOpenExternalApp" class="mt-4">
-        <button class="btn btn-primary btn-sm" @click="openInExternalApp">{{ externalOpenLabel }}</button>
+      <div class="text-center px-6 max-w-md">{{ errorMessage }}</div>
+      <div class="text-center px-6 max-w-md mt-2 text-sm text-white/60 whitespace-pre-line">
+        {{ externalSuggestionText }}
       </div>
-    </div>
-
-    <div v-if="hasError" class="absolute inset-0 flex flex-col items-center justify-center text-white/70 z-30 bg-black/80 px-6 text-center">
-      <IconVideoSlash class="w-12 h-12 mb-3" />
-      <div class="max-w-md whitespace-pre-line">{{ errorMessage }}</div>
-      <div class="mt-4 flex items-center gap-2 pointer-events-auto">
-        <button class="btn btn-outline btn-sm text-white" @click="loadVideo(props.filePath!)">Retry</button>
-        <button v-if="canOpenExternalApp" class="btn btn-primary btn-sm" @click="openInExternalApp">{{ externalOpenLabel }}</button>
+      <div class="mt-4 flex items-center gap-2">
+        <button class="btn btn-outline btn-sm" @click="loadVideo(props.filePath!)">Retry</button>
+        <button v-if="canOpenExternalApp" class="btn btn-primary btn-sm" @click="openInExternalApp">
+          {{ externalOpenLabel }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useI18n } from 'vue-i18n';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 
-import { openFileWithApp } from '@/common/api';
 import { config } from '@/common/config';
 import { IconVideoSlash } from '@/common/icons';
-import { cancelVideoPrepare, prepareVideo, type VideoPrepareResult } from '@/common/video';
+import { cancelVideoPrepare, prepareVideo } from '@/common/video';
+import { openFileWithApp } from '@/common/api';
 
 const props = defineProps({
   filePath: { type: String, required: false },
   rotate: { type: Number, default: 0 },
+  isZoomFit: { type: Boolean, default: false },
   isSlideShow: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['message-from-video-viewer', 'slideshow-next', 'scale', 'viewport-change']);
 const { t: $t } = useI18n();
 
-const player = ref<ReturnType<typeof videojs> | null>(null);
-const playerId = 'vjs-main-player';
+const videoContainer = ref<HTMLDivElement | null>(null);
+const players = ref<(ReturnType<typeof videojs> | null)[]>([]);
 
-const currentStage = ref<'direct' | 'remux' | 'transcode' | null>(null);
-const isPreparing = ref(false);
 const hasError = ref(false);
-const isUnsupported = ref(false);
 const errorMessage = ref('');
-const unsupportedMessage = computed(() => $t('video.errors.unsupported_external') || '此视频格式不受支持，建议使用 IINA 或 VLC 播放');
+const isPlaying = ref(false);
+const isPreparing = ref(false);
 const videoUrl = ref<string | null>(null);
-let loadingId = 0;
 
-const externalVideoAppPath = computed(() => String(config.settings?.externalVideoAppPath || '').trim());
-const externalVideoAppName = computed(() => String(config.settings?.externalVideoAppName || '').trim());
-const canOpenExternalApp = computed(() => !!(props.filePath && externalVideoAppPath.value));
-const externalOpenLabel = computed(() => {
-  if (externalVideoAppName.value) {
-    return $t('video.errors.open_in_external_app_named', { app: externalVideoAppName.value }) || `Open in ${externalVideoAppName.value}`;
-  }
-  return $t('video.errors.open_in_external_app') || 'Open in external player';
+const scale = ref(1);
+const rotate = ref(0);
+const noTransition = ref(false);
+const activeLayer = ref(0);
+const isTransitioning = ref(false);
+const isFit = ref(false);
+
+let currentLoadingId = 0;
+
+// Gesture state
+let isTouchpadDevice = false;
+let horizontalDeltaAccumulator = 0;
+let verticalDeltaAccumulator = 0;
+let gestureResetTimeout: ReturnType<typeof setTimeout> | null = null;
+let hasNavigatedThisGesture = false;
+const gestureType = ref<'none' | 'zoom' | 'nav'>('none');
+const navDirection = ref<'next' | 'prev' | ''>('');
+const GESTURE_LOCK_THRESHOLD = 10;
+const HORIZONTAL_NAV_THRESHOLD = 100;
+
+const transitionName = computed(() => {
+  if (props.isSlideShow) return 'slide-next';
+  if (navDirection.value) return navDirection.value === 'next' ? 'slide-next' : 'slide-prev';
+  return '';
 });
 
-function disposePlayer() {
-  if (player.value) {
-    try { player.value.dispose(); } catch {}
-    player.value = null;
+const externalVideoAppPath = computed(() => String(config.settings.externalVideoAppPath || '').trim());
+const externalVideoAppName = computed(() => String(config.settings.externalVideoAppName || '').trim());
+const canOpenExternalApp = computed(() => !!externalVideoAppPath.value);
+const externalSuggestionText = computed(() => {
+  if (canOpenExternalApp.value) {
+    return $t('video.errors.use_external_with_app');
   }
-}
-
-function pausePlayer() {
-  if (player.value) {
-    try { player.value.pause(); } catch {}
+  return $t('video.errors.use_external');
+});
+const externalOpenLabel = computed(() => {
+  if (externalVideoAppName.value) {
+    return $t('video.errors.open_in_external_app_named', { app: externalVideoAppName.value });
   }
-}
+  return $t('video.errors.open_in_external_app');
+});
 
-async function tryPlay(result: VideoPrepareResult, currentLoadId: number): Promise<boolean> {
-  if (currentLoadId !== loadingId) return false;
-  await nextTick();
+const surfaceStyle = computed(() => ({
+  transform: `rotate(${rotate.value}deg) scale(${scale.value})`,
+}));
 
-  return new Promise((resolve) => {
-    let settled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const finalize = (ok: boolean) => {
-      if (settled) return;
-      settled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-      resolve(ok);
-    };
+const handleTransitionEnd = () => {
+  navDirection.value = '';
+  isTransitioning.value = false;
+};
 
-    const p = player.value ?? videojs(playerId, {
-      autoplay: config.settings?.autoPlayVideo || props.isSlideShow,
-      controls: false,
-      fluid: true,
-      preload: 'auto',
-      muted: !!config.video?.muted,
-      volume: config.video?.volume ?? 1,
-    });
-    player.value = p;
+const disposePlayer = (index: number) => {
+  if (players.value[index]) {
+    players.value[index]?.dispose();
+    players.value[index] = null;
+  }
+};
 
-    p.off('loadedmetadata');
-    p.off('error');
-
-    timeoutId = setTimeout(() => {
-      if (currentLoadId !== loadingId) return;
-      finalize(false);
-    }, 5000);
-
-    p.src({
-      src: convertFileSrc(result.url),
-      type: result.mime_type,
-    });
-    p.load();
-    if (config.settings?.autoPlayVideo || props.isSlideShow) {
-      p.play().catch(() => {});
-    }
-
-    p.one('loadedmetadata', () => {
-      if (currentLoadId !== loadingId) return;
-      finalize(true);
-    });
-    p.one('error', () => {
-      if (currentLoadId !== loadingId) return;
-      finalize(false);
-    });
-
-    if (p.readyState() >= 1) {
-      finalize(true);
-    }
+const initPlayer = (index: number, url: string) => {
+  disposePlayer(index);
+  
+  const playerId = `vjs-player-${index}`;
+  const p = videojs(playerId, {
+    autoplay: config.settings.autoPlayVideo || props.isSlideShow,
+    controls: true,
+    fluid: true,
+    responsive: true,
+    muted: config.video.muted,
+    volume: config.video.volume,
+    sources: [{ src: convertFileSrc(url), type: 'video/mp4' }],
+    userActions: { doubleClick: true }
   });
-}
 
-async function loadVideo(filePath: string) {
-  if (!filePath) return;
-  const currentLoadId = ++loadingId;
-  pausePlayer();
-  videoUrl.value = filePath;
-  hasError.value = false;
-  isUnsupported.value = false;
-  errorMessage.value = '';
-  isPreparing.value = false;
-  currentStage.value = 'direct';
+  p.on('play', () => isPlaying.value = true);
+  p.on('pause', () => isPlaying.value = false);
+  p.on('ended', () => {
+    isPlaying.value = false;
+    if (props.isSlideShow) emit('slideshow-next');
+  });
+  p.on('error', () => {
+    hasError.value = true;
+    errorMessage.value = $t('video.errors.playback_failed') || 'Playback failed';
+  });
+  p.on('volumechange', () => {
+    config.video.volume = p.volume() || 0;
+    config.video.muted = p.muted() || false;
+  });
 
-  try {
-    const res = await prepareVideo(filePath, playerId, null);
-    if (currentLoadId !== loadingId) return;
-    videoUrl.value = res.url;
-    if (await tryPlay(res, currentLoadId)) {
-      return;
-    }
-  } catch (e) {
-    if (String(e).includes('ProbeError')) {
-      hasError.value = true;
-      errorMessage.value = $t('video.errors.unknown') || '未知错误';
-      return;
-    }
-  }
-
-  if (currentLoadId !== loadingId) return;
-  currentStage.value = 'remux';
-  isPreparing.value = true;
-  try {
-    const res = await prepareVideo(filePath, playerId, 'remux');
-    if (currentLoadId !== loadingId) return;
-    videoUrl.value = res.url;
-    if (await tryPlay(res, currentLoadId)) {
-      isPreparing.value = false;
-      return;
-    }
-  } catch {}
-
-  if (currentLoadId !== loadingId) return;
-  currentStage.value = 'transcode';
-  isPreparing.value = true;
-  try {
-    const res = await prepareVideo(filePath, playerId, 'transcode');
-    if (currentLoadId !== loadingId) return;
-    videoUrl.value = res.url;
-    if (await tryPlay(res, currentLoadId)) {
-      isPreparing.value = false;
-      return;
-    }
-  } catch (e: any) {
-    if (String(e).includes('DurationExceeded')) {
-      isPreparing.value = false;
-      isUnsupported.value = true;
-      return;
-    }
-    if (String(e).includes('ProbeError')) {
-      isPreparing.value = false;
-      hasError.value = true;
-      errorMessage.value = $t('video.errors.unknown') || '未知错误';
-      return;
-    }
-  }
-
-  if (currentLoadId !== loadingId) return;
-  isPreparing.value = false;
-  hasError.value = true;
-  errorMessage.value = $t('video.errors.playback_failed') || '无法播放此视频';
-}
+  players.value[index] = p;
+};
 
 async function openInExternalApp() {
   if (!props.filePath || !externalVideoAppPath.value) return;
   await openFileWithApp(props.filePath, externalVideoAppPath.value);
 }
 
-watch(() => props.filePath, (v) => v && loadVideo(v), { immediate: true });
-onBeforeUnmount(() => {
-  disposePlayer();
-  if (props.filePath) {
-    cancelVideoPrepare(playerId);
+async function loadVideo(filePath: string) {
+  currentLoadingId += 1;
+  const loadingId = currentLoadingId;
+  
+  isPreparing.value = true;
+  hasError.value = false;
+  errorMessage.value = '';
+  isPlaying.value = false;
+
+  try {
+    const result = await prepareVideo(filePath);
+    if (loadingId !== currentLoadingId) return;
+
+    videoUrl.value = result.url;
+    isTransitioning.value = true;
+    activeLayer.value ^= 1;
+    
+    // Dispose the OTHER layer's player
+    disposePlayer(activeLayer.value ^ 1);
+
+    await nextTick();
+    initPlayer(activeLayer.value, result.url);
+
+    noTransition.value = true;
+    isFit.value = props.isZoomFit;
+    scale.value = 1;
+    rotate.value = props.rotate;
+    emitViewportChange();
+
+    setTimeout(() => {
+      noTransition.value = false;
+      isPreparing.value = false;
+    }, 100);
+  } catch (error: any) {
+    if (loadingId !== currentLoadingId) return;
+    isPreparing.value = false;
+    hasError.value = true;
+    errorMessage.value = error?.message || String(error);
   }
+}
+
+const emitViewportChange = () => {
+  emit('scale', { scale: scale.value, minScale: 0.1, maxScale: 10 });
+  emit('viewport-change', { scale: scale.value, isZoomFit: isFit.value, fileType: 2 });
+};
+
+defineExpose({
+  zoomIn: () => { scale.value = Math.min(scale.value * 2, 10); emitViewportChange(); },
+  zoomOut: () => { scale.value = Math.max(scale.value / 2, 0.1); emitViewportChange(); },
+  zoomActual: () => { scale.value = 1; emitViewportChange(); },
+  rotateRight: () => { rotate.value = (rotate.value + 90) % 360; emitViewportChange(); },
+  togglePlay: () => {
+    const p = players.value[activeLayer.value];
+    if (p) p.paused() ? p.play() : p.pause();
+  },
+  pause: () => players.value[activeLayer.value]?.pause(),
 });
+
+onMounted(() => { if (props.filePath) loadVideo(props.filePath); });
+onBeforeUnmount(() => {
+  players.value.forEach((_, i) => disposePlayer(i));
+  cancelVideoPrepare();
+});
+
+watch(() => props.filePath, (v) => v && loadVideo(v));
+watch(() => props.rotate, (v) => rotate.value = v);
+
+function handleWheel(event: WheelEvent) {
+  event.preventDefault();
+  if (event.deltaX !== 0) isTouchpadDevice = true;
+  if (gestureResetTimeout) clearTimeout(gestureResetTimeout);
+  gestureResetTimeout = setTimeout(() => {
+    gestureType.value = 'none'; horizontalDeltaAccumulator = 0; verticalDeltaAccumulator = 0; hasNavigatedThisGesture = false;
+  }, 150);
+
+  if (isTouchpadDevice) {
+    if (gestureType.value === 'none') {
+      horizontalDeltaAccumulator += event.deltaX;
+      verticalDeltaAccumulator += event.deltaY;
+      const absX = Math.abs(horizontalDeltaAccumulator);
+      const absY = Math.abs(verticalDeltaAccumulator);
+      if (absX > GESTURE_LOCK_THRESHOLD || absY > GESTURE_LOCK_THRESHOLD) gestureType.value = absX > absY ? 'nav' : 'zoom';
+    } else if (gestureType.value === 'nav') {
+      horizontalDeltaAccumulator += event.deltaX;
+      if (!hasNavigatedThisGesture && Math.abs(horizontalDeltaAccumulator) >= HORIZONTAL_NAV_THRESHOLD) {
+        const direction = horizontalDeltaAccumulator > 0 ? 'next' : 'prev';
+        navDirection.value = direction;
+        emit('message-from-video-viewer', { message: direction });
+        hasNavigatedThisGesture = true;
+      }
+    } else {
+      const delta = -event.deltaY * 0.01;
+      scale.value = Math.max(0.1, Math.min(10, scale.value + delta));
+      emitViewportChange();
+    }
+  } else {
+    const zoomFactor = 0.1;
+    scale.value = event.deltaY < 0 ? Math.min(scale.value * (1 + zoomFactor), 10) : Math.max(scale.value * (1 - zoomFactor), 0.1);
+    emitViewportChange();
+  }
+}
 </script>
 
 <style scoped>
+.vjs-custom-container {
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease-out;
+}
+.vjs-custom-container.no-transition {
+  transition: none;
+}
+
 :deep(.video-js) {
   background-color: transparent;
 }
 :deep(.vjs-tech) {
   object-fit: contain;
 }
+
+.slide-next-enter-active, .slide-next-leave-active { transition: transform 0.6s ease-in-out; }
+.slide-next-enter-from { transform: translateX(100%); }
+.slide-next-leave-to { transform: translateX(-100%); }
+.slide-prev-enter-from { transform: translateX(-100%); }
+.slide-prev-leave-to { transform: translateX(100%); }
 </style>

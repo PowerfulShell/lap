@@ -755,6 +755,10 @@
       "network": "Error red",
       "decode": "Error decodificación",
       "format": "No soportado",
+      "open_in_external_app": "Abrir en reproductor externo",
+      "open_in_external_app_named": "Abrir en {app}",
+      "use_external": "Configure una app externa para abrir vídeos en Ajustes e inténtelo de nuevo.",
+      "use_external_with_app": "Puede intentar abrir este vídeo en el reproductor de terceros configurado.",
       "timeout": "Tiempo agotado",
       "unknown": "Error desconocido"
     }

@@ -755,6 +755,10 @@
       "network": "Netzwerkfehler",
       "decode": "Dekodierfehler",
       "format": "Nicht unterstützt",
+      "open_in_external_app": "In externem Player öffnen",
+      "open_in_external_app_named": "In {app} öffnen",
+      "use_external": "Bitte konfigurieren Sie in den Einstellungen eine externe App zum Öffnen von Videos und versuchen Sie es erneut.",
+      "use_external_with_app": "Sie können versuchen, dieses Video im konfigurierten Drittanbieter-Player zu öffnen.",
       "timeout": "Zeitüberschreitung",
       "unknown": "Unbekannter Fehler"
     }

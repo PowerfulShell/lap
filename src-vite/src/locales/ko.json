@@ -755,6 +755,10 @@
       "network": "네트워크 오류",
       "decode": "디코딩 오류",
       "format": "지원하지 않음",
+      "open_in_external_app": "외부 플레이어로 열기",
+      "open_in_external_app_named": "{app}에서 열기",
+      "use_external": "설정에서 비디오를 여는 외부 앱을 설정한 다음 다시 시도하세요.",
+      "use_external_with_app": "설정된 타사 플레이어로 이 비디오를 열어보세요.",
       "timeout": "시간 초과",
       "unknown": "알 수 없는 오류"
     }

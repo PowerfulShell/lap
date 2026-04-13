@@ -98,6 +98,9 @@ async fn main() {
                 eprintln!("Failed to initialize database: {}", e);
             }
 
+            // Cleanup video cache
+            t_video::init_video_cache(&_app.handle());
+
             if let Err(e) = t_utils::restore_album_scopes(&_app.handle()) {
                 eprintln!("Failed to restore asset scopes: {}", e);
             }

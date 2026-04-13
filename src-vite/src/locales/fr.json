@@ -755,6 +755,10 @@
       "network": "Erreur réseau",
       "decode": "Erreur décodage",
       "format": "Non supporté",
+      "open_in_external_app": "Ouvrir dans un lecteur externe",
+      "open_in_external_app_named": "Ouvrir dans {app}",
+      "use_external": "Veuillez configurer une application externe pour ouvrir les vidéos dans les paramètres, puis réessayez.",
+      "use_external_with_app": "Vous pouvez essayer d’ouvrir cette vidéo dans le lecteur tiers configuré.",
       "timeout": "Délai dépassé",
       "unknown": "Erreur inconnue"
     }

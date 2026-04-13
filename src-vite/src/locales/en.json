@@ -748,22 +748,18 @@
     }
   },
   "video": {
-    "preparing": "Preparing video...",
-    "transcoding": "Transcoding video...",
+    "loading": "Loading video...",
     "failed": "Video could not be played",
     "errors": {
       "aborted": "Video loading was canceled",
       "network": "Network error while loading video",
       "decode": "Video decoding error",
       "format": "Unsupported video format or corrupted file",
-      "file_not_found": "Video file not found",
-      "playback_failed": "This video could not be played in the current player",
-      "unsupported_external": "This video format is not supported. Use IINA or VLC instead.",
+      "timeout": "Video loading timed out. Unsupported format or corrupted file",
       "open_in_external_app": "Open in external player",
       "open_in_external_app_named": "Open in {app}",
-      "use_external": "Please configure an external video player in Settings and try again.",
+      "use_external": "Please configure an external app for opening videos in Settings and try again.",
       "use_external_with_app": "You can try opening this video in the configured third-party player.",
-      "timeout": "Video loading timed out. Unsupported format or corrupted file",
       "unknown": "Unknown error"
     }
   },

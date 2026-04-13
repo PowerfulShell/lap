@@ -755,6 +755,10 @@
       "network": "ネットワークエラー",
       "decode": "デコードエラー",
       "format": "非対応形式",
+      "open_in_external_app": "外部プレーヤーで開く",
+      "open_in_external_app_named": "{app} で開く",
+      "use_external": "設定で動画を開く外部アプリを設定してから、もう一度お試しください。",
+      "use_external_with_app": "設定済みのサードパーティ製プレーヤーでこの動画を開いてみてください。",
       "timeout": "タイムアウト",
       "unknown": "不明なエラー"
     }

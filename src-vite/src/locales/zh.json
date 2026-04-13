@@ -748,22 +748,18 @@
     }
   },
   "video": {
-    "preparing": "正在准备视频...",
-    "transcoding": "正在转码视频...",
+    "loading": "正在加载视频...",
     "failed": "视频无法播放",
     "errors": {
       "aborted": "视频加载被中止",
       "network": "网络错误导致视频下载失败",
       "decode": "视频解码错误",
       "format": "视频格式不支持或文件损坏",
-      "file_not_found": "视频文件不存在",
-      "playback_failed": "视频无法在当前播放器中播放",
-      "unsupported_external": "此视频格式不受支持，建议使用 IINA 或 VLC 播放",
+      "timeout": "视频加载超时，视频格式不支持或文件损坏",
       "open_in_external_app": "使用外部播放器打开",
       "open_in_external_app_named": "使用 {app} 打开",
-      "use_external": "请在设置中配置外部视频播放器后重试。",
+      "use_external": "请在设置中配置打开视频的外部应用后重试。",
       "use_external_with_app": "您可以尝试使用已配置的第三方播放器打开此视频。",
-      "timeout": "视频加载超时，视频格式不支持或文件损坏",
       "unknown": "未知错误"
     }
   },
