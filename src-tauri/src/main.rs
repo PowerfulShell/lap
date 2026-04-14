@@ -40,15 +40,15 @@ async fn main() {
     }));
 
     let builder = tauri::Builder::default();
-
-    // #[cfg(debug_assertions)]
-    // let builder = builder.plugin(tauri_plugin_devtools::init());
-
     let builder = t_protocol::register_protocols(builder);
-    let builder = if let Some(app_key) = option_env!("APTABASE_KEY").filter(|key| !key.is_empty()) {
-        builder.plugin(tauri_plugin_aptabase::Builder::new(app_key).build())
-    } else {
-        builder
+
+    let aptabase_enabled = option_env!("APTABASE_KEY")
+        .filter(|k| !k.is_empty())
+        .is_some();
+
+    let builder = match option_env!("APTABASE_KEY").filter(|k| !k.is_empty()) {
+        Some(key) => builder.plugin(tauri_plugin_aptabase::Builder::new(key).build()),
+        None => builder,
     };
 
     let run_result = builder
@@ -266,12 +266,16 @@ async fn main() {
 
     match run_result {
         Ok(app) => {
-            app.run(|app_handle, event| match event {
+            app.run(move |app_handle, event| match event {
                 tauri::RunEvent::Ready => {
-                    let _ = app_handle.track_event("app_started", None);
+                    if aptabase_enabled {
+                        let _ = app_handle.track_event("app_started", None);
+                    }
                 }
                 tauri::RunEvent::Exit { .. } => {
-                    let _ = app_handle.track_event("app_exited", None);
+                    if aptabase_enabled {
+                        let _ = app_handle.track_event("app_exited", None);
+                    }
                     app_handle.flush_events_blocking();
                 }
                 _ => {}
