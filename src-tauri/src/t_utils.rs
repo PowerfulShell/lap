@@ -9,7 +9,6 @@ use crate::t_sqlite::{AFile, Album};
 use chrono::{DateTime, Local, TimeZone, Utc};
 use once_cell::sync::Lazy;
 use pinyin::ToPinyin;
-use rayon::prelude::*;
 use reverse_geocoder::ReverseGeocoder;
 use std::collections::HashMap;
 use std::fs;
@@ -1201,6 +1200,7 @@ struct ThumbnailTask {
     orientation: i32,
     thumbnail_size: u32,
     file_size: u64,
+    duration: Option<u64>,
 }
 
 const INDEX_THUMBNAIL_BATCH_SIZE: usize = 24;
@@ -1234,6 +1234,7 @@ fn index_single_file(
                             orientation: file.e_orientation.unwrap_or(1) as i32,
                             thumbnail_size,
                             file_size: file.size.max(0) as u64,
+                            duration: file.duration.map(|d| d as u64),
                         });
                     } else {
                         eprintln!(
@@ -1280,18 +1281,25 @@ fn spawn_thumbnail_batch(
 
         let completed_ids = tauri::async_runtime::spawn_blocking(move || {
             tasks
-                .par_iter()
+                .iter()
                 .map(|task| {
-                    let _ = crate::t_sqlite::AThumb::get_or_create_thumb(
+                    match crate::t_sqlite::AThumb::get_or_create_thumb(
                         task.file_id,
                         &task.file_path,
                         task.file_type,
                         task.orientation,
                         task.thumbnail_size,
                         false,
-                    );
-                    task.file_id
+                        task.duration,
+                    ) {
+                        Ok(_) => Some(task.file_id),
+                        Err(e) => {
+                            eprintln!("Failed to generate thumb for {}: {}", task.file_path, e);
+                            None
+                        }
+                    }
                 })
+                .filter_map(|id| id)
                 .collect::<Vec<_>>()
         })
         .await

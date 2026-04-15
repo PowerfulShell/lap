@@ -159,7 +159,7 @@ fn ffmpeg_command() -> tokio::process::Command {
 async fn probe_json_async(file_path: &str) -> Result<serde_json::Value, String> {
     let mut cmd = ffprobe_command();
 
-    cmd.args(["-v", "quiet", "-show_format", "-show_streams", "-of", "json", file_path]);
+    cmd.args(["-v", "quiet", "-show_format", "-show_streams", "-of", "json", "-threads", "1", file_path]);
     
     // Hide console window on Windows.
     #[cfg(target_os = "windows")] { cmd.creation_flags(0x08000000); }
@@ -173,7 +173,7 @@ async fn probe_json_async(file_path: &str) -> Result<serde_json::Value, String> 
         .map_err(|e| format!("ffprobe failed to spawn: {}", e))?;
 
     // Hard timeout for probe stage.
-    match tokio::time::timeout(std::time::Duration::from_secs(10), child.wait_with_output()).await {
+    match tokio::time::timeout(std::time::Duration::from_secs(30), child.wait_with_output()).await {
         Ok(Ok(out)) if out.status.success() => {
             serde_json::from_slice(&out.stdout).map_err(|e| e.to_string())
         }
@@ -181,15 +181,97 @@ async fn probe_json_async(file_path: &str) -> Result<serde_json::Value, String> 
     }
 }
 
-/// Get video dimensions asynchronously.
-pub async fn get_video_dimensions_async(file_path: &str) -> Result<(u32, u32), String> {
+
+/// Get video duration asynchronously.
+pub async fn get_video_duration(file_path: &str) -> Result<u64, String> {
     let json = probe_json_async(file_path).await?;
-    let streams = json["streams"].as_array().ok_or("No streams")?;
-    let video = streams.iter().find(|s| s["codec_type"] == "video").ok_or("No video stream")?;
+    Ok(json["format"]["duration"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0) as u64)
+}
+
+
+
+/// Extracts a video thumbnail.
+pub async fn get_video_thumbnail(file_path: &str, thumbnail_size: u32, known_duration: Option<u64>) -> Result<Option<Vec<u8>>, String> {
+    let duration = if let Some(d) = known_duration {
+        d
+    } else {
+        get_video_duration(file_path).await.unwrap_or(0)
+    };
+    let seek_time = if duration > 10 { duration / 10 } else { 0 };
+
+    let mut cmd = ffmpeg_command();
+
+    let args = ["-ss", &seek_time.to_string(), "-i", file_path, "-vframes", "1", "-f", "image2", "-update", "1",
+              "-vf", &format!("scale=w={}:h={}:force_original_aspect_ratio=increase,crop={}:{}", thumbnail_size, thumbnail_size, thumbnail_size, thumbnail_size),
+              "-c:v", "mjpeg", "-threads", "1", "pipe:1"];
+    cmd.args(args);
+    #[cfg(target_os = "windows")] { cmd.creation_flags(0x08000000); }
+
+    let child = cmd
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true).spawn().map_err(|e| e.to_string())?;
     
-    let w = video["width"].as_u64().unwrap_or(0) as u32;
-    let h = video["height"].as_u64().unwrap_or(0) as u32;
+    match tokio::time::timeout(std::time::Duration::from_secs(30), child.wait_with_output()).await {
+        Ok(Ok(output)) if output.status.success() => Ok(Some(output.stdout)),
+        Ok(Ok(output)) => {
+            let err_msg = String::from_utf8_lossy(&output.stderr);
+            eprintln!("FFmpeg failed for {}. Stderr: {}", file_path, err_msg);
+            
+            let mut fallback = ffmpeg_command();
+            fallback.args(["-i", file_path, "-vframes", "1", "-f", "image2", "-update", "1",
+                           "-vf", &format!("scale=w={}:h={}:force_original_aspect_ratio=increase,crop={}:{}", thumbnail_size, thumbnail_size, thumbnail_size, thumbnail_size),
+                           "-c:v", "mjpeg", "-threads", "1", "pipe:1"]);
+            #[cfg(target_os = "windows")] { fallback.creation_flags(0x08000000); }
+            let f_child = fallback.stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).kill_on_drop(true).spawn().map_err(|e| e.to_string())?;
+            match tokio::time::timeout(std::time::Duration::from_secs(15), f_child.wait_with_output()).await {
+                Ok(Ok(o)) if o.status.success() => Ok(Some(o.stdout)),
+                Ok(Ok(o)) => {
+                    let f_err = String::from_utf8_lossy(&o.stderr);
+                    eprintln!("FFmpeg fallback failed for {}. Stderr: {}", file_path, f_err);
+                    Ok(None)
+                }
+                _ => Ok(None)
+            }
+        }
+        _ => {
+            eprintln!("FFmpeg timed out for {}", file_path);
+            Ok(None)
+        }
+    }
+}
+
+pub fn get_video_thumbnail_sync(file_path: &str, sz: u32, known_duration: Option<u64>) -> Result<Option<Vec<u8>>, String> {
+    let handle = tokio::runtime::Handle::try_current().map_err(|_| "No runtime handle")?;
+    tokio::task::block_in_place(|| handle.block_on(get_video_thumbnail(file_path, sz, known_duration)))
+}
+
+#[derive(Default)]
+pub struct VideoMetadata {
+    pub width: u32,
+    pub height: u32,
+    pub duration: u64,
+    pub e_make: Option<String>,
+    pub e_model: Option<String>,
+    pub e_date_time: Option<String>,
+    pub e_software: Option<String>,
+    pub gps_latitude: Option<f64>,
+    pub gps_longitude: Option<f64>,
+    pub gps_altitude: Option<f64>,
+}
+
+pub async fn get_video_metadata_async(file_path: &str) -> Result<VideoMetadata, String> {
+    let json = probe_json_async(file_path).await?;
     
+    // Extract stream info
+    let streams = json["streams"].as_array().ok_or("No streams found in video")?;
+    let video = streams.iter().find(|s| s["codec_type"] == "video").ok_or("No video stream found")?;
+    
+    let mut w = video["width"].as_u64().unwrap_or(0) as u32;
+    let mut h = video["height"].as_u64().unwrap_or(0) as u32;
+    
+    // Handle rotation
     let mut rotation = 0;
     if let Some(tags) = video["tags"].as_object() {
         if let Some(rot) = tags.get("rotate").and_then(|v| v.as_str()).and_then(|s| s.parse::<i32>().ok()) {
@@ -208,84 +290,29 @@ pub async fn get_video_dimensions_async(file_path: &str) -> Result<(u32, u32), S
             }
         }
     }
-    
-    if rotation == 90 || rotation == 270 { Ok((h, w)) } else { Ok((w, h)) }
-}
-
-/// Sync shim for DB calls.
-pub fn get_video_dimensions(file_path: &str) -> Result<(u32, u32), String> {
-    let handle = tokio::runtime::Handle::try_current().map_err(|_| "No runtime handle")?;
-    tokio::task::block_in_place(|| handle.block_on(get_video_dimensions_async(file_path)))
-}
-
-/// Get video duration asynchronously.
-pub async fn get_video_duration(file_path: &str) -> Result<u64, String> {
-    let json = probe_json_async(file_path).await?;
-    Ok(json["format"]["duration"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0) as u64)
-}
-
-pub fn get_video_duration_sync(file_path: &str) -> Result<u64, String> {
-    let handle = tokio::runtime::Handle::try_current().map_err(|_| "No runtime handle")?;
-    tokio::task::block_in_place(|| handle.block_on(get_video_duration(file_path)))
-}
-
-/// Extracts a video thumbnail.
-pub async fn get_video_thumbnail(file_path: &str, thumbnail_size: u32, known_duration: Option<u64>) -> Result<Option<Vec<u8>>, String> {
-    let duration = if let Some(d) = known_duration { d } else { get_video_duration(file_path).await.unwrap_or(0) };
-    let seek_time = if duration > 10 { duration / 10 } else { 0 };
-
-    let mut cmd = ffmpeg_command();
-
-    cmd.args(["-ss", &seek_time.to_string(), "-i", file_path, "-vframes", "1", "-f", "image2", "-update", "1",
-              "-vf", &format!("scale=w={}:h={}:force_original_aspect_ratio=increase,crop={}:{}", thumbnail_size, thumbnail_size, thumbnail_size, thumbnail_size),
-              "-c:v", "mjpeg", "pipe:1"]);
-    #[cfg(target_os = "windows")] { cmd.creation_flags(0x08000000); }
-
-    let child = cmd
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .kill_on_drop(true).spawn().map_err(|e| e.to_string())?;
-    
-    match tokio::time::timeout(std::time::Duration::from_secs(10), child.wait_with_output()).await {
-        Ok(Ok(output)) if output.status.success() => Ok(Some(output.stdout)),
-        _ => {
-            let mut fallback = ffmpeg_command();
-            fallback.args(["-i", file_path, "-vframes", "1", "-f", "image2", "-update", "1",
-                           "-vf", &format!("scale=w={}:h={}:force_original_aspect_ratio=increase,crop={}:{}", thumbnail_size, thumbnail_size, thumbnail_size, thumbnail_size),
-                           "-c:v", "mjpeg", "pipe:1"]);
-            #[cfg(target_os = "windows")] { fallback.creation_flags(0x08000000); }
-            let f_child = fallback.stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null()).kill_on_drop(true).spawn().map_err(|e| e.to_string())?;
-            match tokio::time::timeout(std::time::Duration::from_secs(5), f_child.wait_with_output()).await {
-                Ok(Ok(o)) if o.status.success() => Ok(Some(o.stdout)),
-                _ => Ok(None)
-            }
-        }
+    if rotation == 90 || rotation == 270 {
+        std::mem::swap(&mut w, &mut h);
     }
-}
 
-pub fn get_video_thumbnail_sync(file_path: &str, sz: u32, known_duration: Option<u64>) -> Result<Option<Vec<u8>>, String> {
-    let handle = tokio::runtime::Handle::try_current().map_err(|_| "No runtime handle")?;
-    tokio::task::block_in_place(|| handle.block_on(get_video_thumbnail(file_path, sz, known_duration)))
-}
+    // Extract duration
+    let duration = json["format"]["duration"].as_str().and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0) as u64;
 
-#[derive(Default)]
-pub struct VideoMetadata {
-    pub e_make: Option<String>, pub e_model: Option<String>, pub e_date_time: Option<String>,
-    pub e_software: Option<String>, pub gps_latitude: Option<f64>, pub gps_longitude: Option<f64>, pub gps_altitude: Option<f64>,
-}
-
-pub async fn get_video_metadata_async(file_path: &str) -> Result<VideoMetadata, String> {
-    let json = probe_json_async(file_path).await.unwrap_or_default();
+    // Extract tags
     let meta = if let Some(tags) = json["format"]["tags"].as_object() {
         tags.iter().map(|(k, v)| (k.to_lowercase(), v.as_str().unwrap_or("").to_string())).collect::<HashMap<String, String>>()
     } else { HashMap::new() };
+
     Ok(VideoMetadata {
+        width: w,
+        height: h,
+        duration,
         e_make: first_exist(&meta, &["make", "camera_make"]),
         e_model: first_exist(&meta, &["model", "camera_model"]),
         e_software: first_exist(&meta, &["software", "encoder"]),
         e_date_time: first_exist(&meta, &["creation_time"]),
-        gps_latitude: None, gps_longitude: None, gps_altitude: None
+        gps_latitude: None, 
+        gps_longitude: None, 
+        gps_altitude: None
     })
 }
 

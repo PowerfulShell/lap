@@ -680,22 +680,10 @@ impl AFile {
     fn new(folder_id: i64, file_path: &str, file_type: i64) -> Result<Self, String> {
         let file_info = t_utils::FileInfo::new(file_path)?;
 
-        // get dimensions based on file type
-        let (width, height) = match file_type {
-            1 => t_image::get_image_dimensions(file_path)?,
-            2 => t_video::get_video_dimensions(file_path)?,
-            3 => t_image::get_raw_dimensions(file_path)?,
-            _ => (0, 0),
-        };
-
-        // get duration of video file
-        let duration = match file_type {
-            2 => t_video::get_video_duration_sync(file_path)? as i64,
-            _ => 0,
-        };
-        let format_label = t_utils::detect_file_format_label(file_path, file_type);
-
-        // Initialize mutable metadata fields
+        // get dimensions and duration based on file type
+        let (mut width, mut height, mut duration) = (0u32, 0u32, 0u64);
+        
+        // Initialize metadata fields
         let mut taken_date: Option<i64> = None;
         let mut e_make: Option<String> = None;
         let mut e_model: Option<String> = None;
@@ -716,6 +704,33 @@ impl AFile {
         let mut gps_latitude: Option<f64> = None;
         let mut gps_longitude: Option<f64> = None;
         let mut gps_altitude: Option<f64> = None;
+
+        match file_type {
+            1 => {
+                let (w, h) = t_image::get_image_dimensions(file_path)?;
+                width = w; height = h;
+            }
+            2 => {
+                let video_metadata = t_video::get_video_metadata(file_path)?;
+                width = video_metadata.width;
+                height = video_metadata.height;
+                duration = video_metadata.duration;
+                e_make = video_metadata.e_make;
+                e_model = video_metadata.e_model;
+                e_date_time = video_metadata.e_date_time;
+                e_software = video_metadata.e_software;
+                gps_latitude = video_metadata.gps_latitude;
+                gps_longitude = video_metadata.gps_longitude;
+                gps_altitude = video_metadata.gps_altitude;
+            }
+            3 => {
+                let (w, h) = t_image::get_raw_dimensions(file_path)?;
+                width = w; height = h;
+            }
+            _ => {}
+        };
+
+        let format_label = t_utils::detect_file_format_label(file_path, file_type);
 
         if file_type == 1 || file_type == 3 {
             // Image file
@@ -796,17 +811,6 @@ impl AFile {
                 }
             }
         } else if file_type == 2 {
-            // Video file
-            if let Ok(video_metadata) = t_video::get_video_metadata(file_path) {
-                e_make = video_metadata.e_make;
-                e_model = video_metadata.e_model;
-                e_date_time = video_metadata.e_date_time;
-                e_software = video_metadata.e_software;
-                gps_latitude = video_metadata.gps_latitude;
-                gps_longitude = video_metadata.gps_longitude;
-                gps_altitude = video_metadata.gps_altitude;
-            }
-
             taken_date = e_date_time
                 .as_ref()
                 .and_then(|dt| t_utils::meta_date_to_timestamp(dt))
@@ -846,7 +850,7 @@ impl AFile {
             height: e_orientation
                 .map(|orientation| if orientation > 4 { width } else { height })
                 .or(Some(height)),
-            duration: Some(duration),
+            duration: Some(duration as i64),
 
             is_favorite: None,
             rating: Some(0),
@@ -1434,15 +1438,17 @@ impl AFile {
                         Self::update_file_info(file_id, file_path, last_scan_time)?
                     {
                         // If modified, delete old thumbnail and remove embeds data
-                        if modified {
+                        if modified || missing_thumb {
                             let _ = AThumb::delete(file_id);
                             // remove embeds data
-                            let conn = open_conn()?;
-                            let _ = conn.execute(
-                                "UPDATE afiles SET embeds = NULL WHERE id = ?1",
-                                params![file_id],
-                            );
-                            updated_file.has_embedding = Some(false);
+                            if modified {
+                                let conn = open_conn()?;
+                                let _ = conn.execute(
+                                    "UPDATE afiles SET embeds = NULL WHERE id = ?1",
+                                    params![file_id],
+                                );
+                                updated_file.has_embedding = Some(false);
+                            }
                         }
                         return Ok((updated_file, 2));
                     }
@@ -2337,6 +2343,7 @@ impl AThumb {
         orientation: i32,
         thumbnail_size: u32,
         library_id: &str,
+        known_duration: Option<u64>,
     ) -> Result<Option<Self>, String> {
         let (thumb_data, error_code) = match file_type {
             1 => {
@@ -2352,7 +2359,7 @@ impl AThumb {
                                 Err(_) => (None, 1),   // error
                             }
                             #[cfg(not(target_os = "macos"))]
-                            match t_video::get_video_thumbnail_sync(file_path, thumbnail_size, None)
+                            match t_video::get_video_thumbnail_sync(file_path, thumbnail_size, known_duration)
                             {
                                 Ok(Some(data)) => (Some(data), 0),
                                 Ok(None) => (None, 1), // empty thumb
@@ -2378,7 +2385,7 @@ impl AThumb {
             }
             2 => {
                 // video
-                match t_video::get_video_thumbnail_sync(file_path, thumbnail_size, None) {
+                match t_video::get_video_thumbnail_sync(file_path, thumbnail_size, known_duration) {
                     Ok(Some(data)) => (Some(data), 0),
                     Ok(None) => (None, 1),
                     Err(_) => (None, 1),
@@ -2620,6 +2627,7 @@ impl AThumb {
         orientation: i32,
         thumbnail_size: u32,
         library_id: &str,
+        known_duration: Option<u64>,
     ) -> Result<Option<Self>, String> {
         let mut athumb = match Self::new_for_library(
             file_id,
@@ -2628,6 +2636,7 @@ impl AThumb {
             orientation,
             thumbnail_size,
             library_id,
+            known_duration,
         ) {
             Ok(Some(athumb)) => athumb,
             _ => Self {
@@ -2663,6 +2672,7 @@ impl AThumb {
         file_type: i64,
         orientation: i32,
         thumbnail_size: u32,
+        known_duration: Option<u64>,
     ) -> Result<Option<Self>, String> {
         let library_id = Self::get_current_library_id();
         Self::create_cache_backed_thumb_for_library(
@@ -2672,6 +2682,7 @@ impl AThumb {
             orientation,
             thumbnail_size,
             &library_id,
+            known_duration,
         )
     }
 
@@ -2724,6 +2735,10 @@ impl AThumb {
 
         tauri::async_runtime::spawn(async move {
             let generated = tauri::async_runtime::spawn_blocking(move || {
+                let duration = if file_type == 2 {
+                    AFile::get_file_info(file_id).ok().flatten().and_then(|f| f.duration.map(|d| d as u64))
+                } else { None };
+                
                 Self::get_or_create_thumb(
                     file_id,
                     &file_path,
@@ -2731,6 +2746,7 @@ impl AThumb {
                     orientation,
                     thumbnail_size,
                     force_regenerate,
+                    duration,
                 )
             })
             .await;
@@ -2757,13 +2773,16 @@ impl AThumb {
         orientation: i32,
         thumbnail_size: u32,
         force_regenerate: bool,
+        known_duration: Option<u64>,
     ) -> Result<Option<Self>, String> {
         if force_regenerate {
             let _ = Self::delete(file_id);
         } else if let Some(thumb) =
             Self::get_thumb_if_available(file_id, file_path, thumbnail_size, orientation, false)?
         {
-            return Ok(Some(thumb));
+            if thumb.error_code == 0 {
+                return Ok(Some(thumb));
+            }
         }
 
         let _generation_guard = Self::acquire_generation_guard(file_id, thumbnail_size);
@@ -2776,11 +2795,13 @@ impl AThumb {
                 orientation,
                 false,
             )? {
-                return Ok(Some(hydrated));
+                if hydrated.error_code == 0 {
+                    return Ok(Some(hydrated));
+                }
             }
         }
 
-        Self::create_cache_backed_thumb(file_id, file_path, file_type, orientation, thumbnail_size)
+        Self::create_cache_backed_thumb(file_id, file_path, file_type, orientation, thumbnail_size, known_duration)
     }
 
     /// fetch raw thumbnail bytes for protocol handler
@@ -2812,6 +2833,7 @@ impl AThumb {
                 orientation,
                 thumbnail_size,
                 library_id,
+                file.duration.map(|d| d as u64),
             )?
             .and_then(|thumb| thumb.thumb_data));
         }
