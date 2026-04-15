@@ -26,7 +26,6 @@ dependencies = [
  "ort",
  "pinyin",
  "rand 0.8.5",
- "rayon",
  "reverse_geocoder",
  "rusqlite",
  "serde",

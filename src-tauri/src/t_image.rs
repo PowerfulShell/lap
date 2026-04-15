@@ -12,7 +12,7 @@ use little_exif::filetype::FileExtension;
 use little_exif::ifd::ExifTagGroup;
 use little_exif::metadata::Metadata as LittleExifMetadata;
 use once_cell::sync::Lazy;
-use rayon::prelude::*;
+
 use rusqlite::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -205,7 +205,7 @@ pub fn generate_directory_thumbnails(
 
     let processed = files.len();
     let results: Vec<bool> = files
-        .par_iter()
+        .iter()
         .map(|path| {
             let path_str = path.to_string_lossy().to_string();
             let Some(file_type) = t_utils::get_file_type(&path_str) else {
