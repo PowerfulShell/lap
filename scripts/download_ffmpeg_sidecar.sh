@@ -8,10 +8,14 @@ mkdir -p "$TARGET_DIR"
 
 RELEASE_BASE="https://github.com/julyx10/lap-binaries/releases/download/ffmpeg-8.1"
 
-case "$(uname -s)" in
-  Darwin)
-    case "$(uname -m)" in
-      x86_64)
+# Support overriding OS and ARCH for cross-compilation or CI
+OS_TYPE="${1:-$(uname -s)}"
+ARCH_TYPE="${2:-$(uname -m)}"
+
+case "$OS_TYPE" in
+  Darwin|macos|macos-*)
+    case "$ARCH_TYPE" in
+      x86_64|x64)
         FFMPEG_FILE="ffmpeg-x86_64-apple-darwin"
         FFPROBE_FILE="ffprobe-x86_64-apple-darwin"
         ;;
@@ -20,14 +24,14 @@ case "$(uname -s)" in
         FFPROBE_FILE="ffprobe-aarch64-apple-darwin"
         ;;
       *)
-        echo "Unsupported macOS architecture: $(uname -m)"
+        echo "Unsupported macOS architecture: $ARCH_TYPE"
         exit 1
         ;;
     esac
     ;;
-  Linux)
-    case "$(uname -m)" in
-      x86_64)
+  Linux|linux|linux-*|ubuntu-*)
+    case "$ARCH_TYPE" in
+      x86_64|x64)
         FFMPEG_FILE="ffmpeg-x86_64-unknown-linux-gnu"
         FFPROBE_FILE="ffprobe-x86_64-unknown-linux-gnu"
         ;;
@@ -36,17 +40,17 @@ case "$(uname -s)" in
         FFPROBE_FILE="ffprobe-aarch64-unknown-linux-gnu"
         ;;
       *)
-        echo "Unsupported Linux architecture: $(uname -m)"
+        echo "Unsupported Linux architecture: $ARCH_TYPE"
         exit 1
         ;;
     esac
     ;;
-  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+  MINGW*|MSYS*|CYGWIN*|Windows_NT|windows|windows-*)
     FFMPEG_FILE="ffmpeg-x86_64-pc-windows-msvc.exe"
     FFPROBE_FILE="ffprobe-x86_64-pc-windows-msvc.exe"
     ;;
   *)
-    echo "Unsupported platform: $(uname -s)"
+    echo "Unsupported platform: $OS_TYPE"
     exit 1
     ;;
 esac
