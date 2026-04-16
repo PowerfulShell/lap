@@ -24,10 +24,12 @@
       "description_placeholder": "アルバムの説明を入力",
       "images": "画像",
       "videos": "動画",
+      "scanned_files": "スキャン済みファイル",
       "files_count": "{count} ファイル ({size})",
       "files_counting": "ファイルを計算中...",
       "created_at": "作成日",
-      "modified_at": "変更日"
+      "modified_at": "変更日",
+      "last_scan_time": "最終スキャン"
     },
     "no_albums": {
       "title": "アルバムがありません",
@@ -668,6 +670,7 @@
     "duration": "長さ",
     "created_at": "作成日時",
     "modified_at": "変更日時",
+    "last_scan_time": "最終スキャン",
     "camera": "カメラ",
     "camera_make": "メーカー",
     "camera_model": "モデル",

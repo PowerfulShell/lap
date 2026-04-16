@@ -157,6 +157,7 @@
       :albumCoverFileId="isNewAlbum ? undefined : selectedAlbum?.cover_file_id"
       :createdAt="isNewAlbum ? '' : formatTimestamp(selectedAlbum?.created_at ?? 0, $t('format.date_time'))"
       :modifiedAt="isNewAlbum ? '' : formatTimestamp(selectedAlbum?.modified_at ?? 0, $t('format.date_time'))"
+      :lastScanTime="isNewAlbum ? '' : formatTimestamp((selectedAlbum?.last_scan_time ?? 0) / 1000, $t('format.date_time'))"
       @ok="clickEditAlbum"
       @cancel="showAlbumEdit = false"
     />

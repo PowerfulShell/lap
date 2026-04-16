@@ -207,6 +207,12 @@
             <div class="text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('file_info.modified_at') }}</div>
             <div class="text-xs font-semibold text-base-content/65">{{ formatTimestamp(fileInfo?.modified_at, $t('format.date_time')) }}</div>
 
+            <!-- Last Scan -->
+            <template v-if="fileInfo?.last_scan_time && fileInfo.last_scan_time > 0">
+              <div class="text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('file_info.last_scan_time') }}</div>
+              <div class="text-xs font-semibold text-base-content/65">{{ formatTimestamp(fileInfo?.last_scan_time/1000, $t('format.date_time')) }}</div>
+            </template>
+
             <div class="flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('menu.meta.favorite') }}</div>
             <div class="h-6 flex items-center gap-0.5">
               <button

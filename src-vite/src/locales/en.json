@@ -24,10 +24,12 @@
       "description_placeholder": "Enter album description",
       "images": "Images",
       "videos": "Videos",
+      "scanned_files": "Scanned Files",
       "files_count": "{count} files ({size})",
       "files_counting": "Counting files...",
       "created_at": "Created at",
-      "modified_at": "Modified at"
+      "modified_at": "Modified at",
+      "last_scan_time": "Last scanned"
     },
     "no_albums": {
       "title": "No albums added yet",
@@ -668,6 +670,7 @@
     "duration": "Duration",
     "created_at": "Created at",
     "modified_at": "Modified at",
+    "last_scan_time": "Last scanned",
     "camera": "Camera",
     "camera_make": "Camera make",
     "camera_model": "Camera model",

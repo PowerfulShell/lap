@@ -24,10 +24,12 @@
       "description_placeholder": "Entrer la description de l'album",
       "images": "Images",
       "videos": "Vidéos",
+      "scanned_files": "Fichiers scannés",
       "files_count": "{count} fichiers ({size})",
       "files_counting": "Comptage...",
       "created_at": "Créé le",
-      "modified_at": "Modifié le"
+      "modified_at": "Modifié le",
+      "last_scan_time": "Dernier scan"
     },
     "no_albums": {
       "title": "Aucun album",
@@ -668,6 +670,7 @@
     "duration": "Durée",
     "created_at": "Créé le",
     "modified_at": "Modifié le",
+    "last_scan_time": "Dernier scan",
     "camera": "Appareil",
     "camera_make": "Marque",
     "camera_model": "Modèle",

@@ -24,10 +24,12 @@
       "description_placeholder": "앨범 설명 입력",
       "images": "이미지",
       "videos": "비디오",
+      "scanned_files": "스캔된 파일",
       "files_count": "{count} 파일 ({size})",
       "files_counting": "파일 계산 중...",
       "created_at": "생성일",
-      "modified_at": "수정일"
+      "modified_at": "수정일",
+      "last_scan_time": "최근 스캔"
     },
     "no_albums": {
       "title": "앨범이 없습니다",
@@ -668,6 +670,7 @@
     "duration": "재생시간",
     "created_at": "생성일",
     "modified_at": "수정일",
+    "last_scan_time": "최근 스캔",
     "camera": "카메라",
     "camera_make": "제조사",
     "camera_model": "모델",

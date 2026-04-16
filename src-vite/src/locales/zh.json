@@ -24,10 +24,12 @@
       "description_placeholder": "输入相册描述",
       "images": "图片",
       "videos": "视频",
+      "scanned_files": "已扫描文件",
       "files_count": "{count} 个文件 ({size})",
       "files_counting": "正在统计文件...",
       "created_at": "创建时间",
-      "modified_at": "修改时间"
+      "modified_at": "修改时间",
+      "last_scan_time": "最近扫描"
     },
     "no_albums": {
       "title": "还没有相册",
@@ -668,6 +670,7 @@
     "duration": "时长",
     "created_at": "创建时间",
     "modified_at": "修改时间",
+    "last_scan_time": "最近扫描",
     "camera": "相机",
     "camera_make": "相机制造商",
     "camera_model": "相机型号",

@@ -24,10 +24,12 @@
       "description_placeholder": "Введите описание альбома",
       "images": "Изображения",
       "videos": "Видео",
+      "scanned_files": "Сканированные файлы",
       "files_count": "{count} файлов ({size})",
       "files_counting": "Подсчет файлов...",
       "created_at": "Создано",
-      "modified_at": "Изменено"
+      "modified_at": "Изменено",
+      "last_scan_time": "Последнее сканирование"
     },
     "no_albums": {
       "title": "Нет альбомов",
@@ -668,6 +670,7 @@
     "duration": "Длительность",
     "created_at": "Создан",
     "modified_at": "Изменен",
+    "last_scan_time": "Последнее сканирование",
     "camera": "Камера",
     "camera_make": "Производитель",
     "camera_model": "Модель",

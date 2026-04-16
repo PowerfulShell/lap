@@ -63,11 +63,14 @@
         
         <template v-if="!isNewAlbum">
           <!-- Created At -->
-          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.created_at') }}</div>
-          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ createdAt }}</div>
+          <!-- <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.created_at') }}</div>
+          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ createdAt }}</div> -->
           <!-- Modified At -->
-          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.modified_at') }}</div>
-          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ modifiedAt }}</div>
+          <!-- <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.modified_at') }}</div>
+          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ modifiedAt }}</div> -->
+          <!-- Last Scan Time -->
+          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.last_scan_time') }}</div>
+          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ lastScanTime }}</div>
         </template>
       </div>
     </section>
@@ -136,6 +139,10 @@ const props = defineProps({
     default: '' 
   },
   modifiedAt: { 
+    type: String, 
+    default: '' 
+  },
+  lastScanTime: { 
     type: String, 
     default: '' 
   },
