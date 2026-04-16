@@ -53,12 +53,55 @@
         </div>
 
         <template v-if="selectedFolder !== ''">
-          <!-- Images -->
-          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.images') }}</div>
-          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ totalImageCount >= 0 ? $t('album.edit.files_count', {count: totalImageCount.toLocaleString(), size: formatFileSize(totalImageSize) }) : $t('album.edit.files_counting') }}</div>
-          <!-- Videos -->
-          <div class="h-8 flex items-center text-[10px] uppercase tracking-widest font-bold text-base-content/25">{{ $t('album.edit.videos') }}</div>
-          <div class="h-8 flex items-center text-xs font-semibold text-base-content/65">{{ totalVideoCount >= 0 ? $t('album.edit.files_count', {count: totalVideoCount.toLocaleString(), size: formatFileSize(totalVideoSize) }) : $t('album.info.files_counting') }}</div>
+          <!-- Files Breakdown Label (Left Column) -->
+          <div class="h-8 flex items-start pt-3 text-[10px] uppercase tracking-widest font-bold text-base-content/25">
+            {{ $t('album.edit.scanned_files') }}
+          </div>
+          
+          <!-- Breakdown Content (Right Column) -->
+          <div class="py-3 flex flex-col gap-2">
+            <!-- Total Summary (Right Aligned) -->
+            <div class="flex justify-end items-baseline mb-0.5">
+              <span class="text-xs font-bold text-base-content/70">
+                {{ totalImageCount >= 0 ? $t('album.edit.files_count', { count: (totalImageCount + totalVideoCount).toLocaleString(), size: formatFileSize(totalImageSize + totalVideoSize) }) : '...' }}
+              </span>
+            </div>
+            
+            <!-- Elegant Progress Bar -->
+            <div v-if="totalImageCount >= 0" class="flex w-full h-2 bg-base-content/5 rounded-full overflow-hidden shadow-inner">
+              <div 
+                class="bg-primary/80 transition-all duration-500 ease-out shadow-[inset_-1px_0_0_rgba(0,0,0,0.1)]" 
+                :style="{ width: (totalImageCount / (totalImageCount + totalVideoCount || 1) * 100) + '%' }"
+                :title="$t('album.edit.images')"
+              ></div>
+              <div 
+                class="bg-primary/30 transition-all duration-500 ease-out" 
+                :style="{ width: (totalVideoCount / (totalImageCount + totalVideoCount || 1) * 100) + '%' }"
+                :title="$t('album.edit.videos')"
+              ></div>
+            </div>
+            <progress v-else class="progress progress-primary/40 w-full h-2"></progress>
+
+            <!-- Metadata Labels (Space Between) -->
+            <div class="flex justify-between items-center px-0.5">
+              <!-- Images info -->
+              <div class="flex flex-col">
+                <span class="text-[10px] font-bold text-primary/70 uppercase tracking-tight">{{ $t('album.edit.images') }}</span>
+                <span class="text-[11px] font-semibold text-base-content/60">
+                  {{ totalImageCount >= 0 ? totalImageCount.toLocaleString() : '...' }} 
+                  <span class="text-[9px] opacity-40 font-medium ml-0.5">{{ totalImageCount >= 0 ? formatFileSize(totalImageSize) : '' }}</span>
+                </span>
+              </div>
+              <!-- Videos info -->
+              <div class="flex flex-col items-end">
+                <span class="text-[10px] font-bold text-primary/40 uppercase tracking-tight">{{ $t('album.edit.videos') }}</span>
+                <span class="text-[11px] font-semibold text-base-content/50">
+                  {{ totalVideoCount >= 0 ? totalVideoCount.toLocaleString() : '...' }}
+                  <span class="text-[9px] opacity-40 font-medium ml-0.5">{{ totalVideoCount >= 0 ? formatFileSize(totalVideoSize) : '' }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
         </template>
         
         <template v-if="!isNewAlbum">
