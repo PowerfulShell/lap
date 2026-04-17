@@ -5,6 +5,16 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - macos
+          - windows
+          - linux
       ref:
         description: "Git ref to build (branch, tag, or SHA)"
         required: false
@@ -20,7 +30,9 @@ concurrency:
 
 jobs:
   build-macos:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: |
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos')) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -166,7 +178,9 @@ jobs:
           if-no-files-found: error
 
   build-windows:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: |
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows')) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: windows-latest
 
     steps:
@@ -287,9 +301,117 @@ jobs:
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi.sig
           if-no-files-found: error
+ 
+  build-linux:
+    if: |
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux')) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: linux-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            linux-pnpm-store-
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: linux-x86_64-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            linux-x86_64-cargo-
+
+      - name: Download FFmpeg Sidecars
+        shell: bash
+        run: bash scripts/download_ffmpeg_sidecar.sh linux x86_64
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: src-vite
+
+      - name: Download AI Models
+        shell: bash
+        run: bash scripts/download_models.sh
+
+      - name: Build and Sign
+        uses: tauri-apps/tauri-action@v0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APTABASE_KEY: ${{ secrets.APTABASE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: .
+          args: --verbose --target x86_64-unknown-linux-gnu --bundles deb,appimage --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Rename Linux package for PR build
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUFFIX="pr-${{ github.event.pull_request.number || github.run_number }}"
+          find src-tauri/target/x86_64-unknown-linux-gnu/release/bundle -type f \( -name "*.deb" -o -name "*.AppImage" \) | while read file; do
+            dir=$(dirname "$file")
+            base=$(basename "$file")
+            ext="${file##*.}"
+            filename="${base%.*}"
+            mv "$file" "$dir/${filename}-${SUFFIX}.${ext}"
+          done
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lap-pr-linux-x86_64-${{ github.event.pull_request.number || github.run_number }}
+          path: |
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+            src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
 
   publish-pr-build:
-    needs: [build-macos, build-windows]
+    needs: [build-macos, build-windows, build-linux]
+    if: |
+      always() &&
+      !cancelled() &&
+      contains(needs.*.result, 'success')
     runs-on: ubuntu-latest
 
     steps:
