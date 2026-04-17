@@ -20,6 +20,8 @@ pub struct AiEngine {
     tokenizer: Option<Tokenizer>,
 }
 
+const AI_INTRA_THREADS: usize = 2;
+
 impl AiEngine {
     pub fn new() -> Self {
         Self {
@@ -45,7 +47,7 @@ impl AiEngine {
                 dev_path
             } else {
                 app.path()
-                    .resolve("resources/models", tauri::path::BaseDirectory::Resource)
+                    .resolve("models", tauri::path::BaseDirectory::Resource)
                     .map_err(|e| format!("Failed to resolve resource path: {}", e))?
             }
         };
@@ -53,7 +55,7 @@ impl AiEngine {
         #[cfg(not(debug_assertions))]
         let resource_dir = app
             .path()
-            .resolve("resources/models", tauri::path::BaseDirectory::Resource)
+            .resolve("models", tauri::path::BaseDirectory::Resource)
             .map_err(|e| format!("Failed to resolve resource path: {}", e))?;
 
         let text_model_path = resource_dir.join(t_common::AI_TEXT_MODEL);
@@ -70,7 +72,7 @@ impl AiEngine {
             .map_err(|e| e.to_string())?
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(|e| e.to_string())?
-            .with_intra_threads(4)
+            .with_intra_threads(AI_INTRA_THREADS)
             .map_err(|e| e.to_string())?
             .commit_from_file(&text_model_path)
             .map_err(|e| {
@@ -87,7 +89,7 @@ impl AiEngine {
             .map_err(|e| e.to_string())?
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(|e| e.to_string())?
-            .with_intra_threads(4)
+            .with_intra_threads(AI_INTRA_THREADS)
             .map_err(|e| e.to_string())?
             .commit_from_file(&vision_model_path)
             .map_err(|e| {

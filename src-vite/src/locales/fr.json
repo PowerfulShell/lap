@@ -50,6 +50,11 @@
     "index": {
       "wait_index": "En attente du scan...",
       "indexing": "Scan en cours... {count} / {total}",
+      "discovering": "Analyse de l'album... {count} / {total}",
+      "preparing_previews": "Génération des aperçus... {count} / {total}",
+      "preparing_search": "Préparation de la recherche... {count} / {total}",
+      "complete": "Analyse terminée",
+      "complete_with_issues": "Analyse terminée avec {count} problèmes",
       "paused": "Scan en pause",
       "description": "Génération des miniatures pour la recherche et l'aperçu. Cela peut prendre quelques minutes.",
       "cancel": "Annuler le scan",

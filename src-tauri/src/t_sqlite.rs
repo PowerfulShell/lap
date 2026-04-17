@@ -326,7 +326,9 @@ impl Album {
         Ok(())
     }
 
-    /// Recount files for an album from the database and update stored total/indexed.
+    /// Recount files for an album from the database and update stored total.
+    /// Indexed is preserved but clamped so partially processed albums are not
+    /// incorrectly marked as fully indexed.
     pub fn recount_album(id: i64) -> Result<Self, String> {
         let conn = open_conn()?;
         let total: i64 = conn
@@ -336,9 +338,17 @@ impl Album {
                 |row| row.get(0),
             )
             .map_err(|e| e.to_string())?;
+        let indexed: i64 = conn
+            .query_row(
+                "SELECT COALESCE(indexed, 0) FROM albums WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        let clamped_indexed = indexed.min(total).max(0);
         conn.execute(
-            "UPDATE albums SET total = ?1, indexed = ?1 WHERE id = ?2",
-            params![total, id],
+            "UPDATE albums SET total = ?1, indexed = ?2 WHERE id = ?3",
+            params![total, clamped_indexed, id],
         )
         .map_err(|e| e.to_string())?;
         let result = Self::get_album_by_id(id)?;
@@ -681,7 +691,7 @@ impl AFile {
 
         // get dimensions and duration based on file type
         let (mut width, mut height, mut duration) = (0u32, 0u32, 0u64);
-        
+
         // Initialize metadata fields
         let mut taken_date: Option<i64> = None;
         let mut e_make: Option<String> = None;
@@ -707,7 +717,8 @@ impl AFile {
         match file_type {
             1 => {
                 let (w, h) = t_image::get_image_dimensions(file_path)?;
-                width = w; height = h;
+                width = w;
+                height = h;
             }
             2 => {
                 let video_metadata = t_video::get_video_metadata(file_path)?;
@@ -724,7 +735,8 @@ impl AFile {
             }
             3 => {
                 let (w, h) = t_image::get_raw_dimensions(file_path)?;
-                width = w; height = h;
+                width = w;
+                height = h;
             }
             _ => {}
         };
@@ -823,31 +835,41 @@ impl AFile {
                     let n = f.read(&mut buf).unwrap_or(0);
                     let data = &buf[..n];
 
-                    if e_make.is_none() { e_make = Self::scrape_ascii_from_tag(data, 0x010f); }
-                    if e_model.is_none() { e_model = Self::scrape_ascii_from_tag(data, 0x0110); }
+                    if e_make.is_none() {
+                        e_make = Self::scrape_ascii_from_tag(data, 0x010f);
+                    }
+                    if e_model.is_none() {
+                        e_model = Self::scrape_ascii_from_tag(data, 0x0110);
+                    }
                     if e_date_time.is_none() {
                         e_date_time = Self::scrape_ascii_from_tag(data, 0x9003)
                             .or_else(|| Self::scrape_ascii_from_tag(data, 0x0132));
                     }
-                    if e_software.is_none() { e_software = Self::scrape_ascii_from_tag(data, 0x0131); }
-                    if e_lens_model.is_none() { e_lens_model = Self::scrape_ascii_from_tag(data, 0xa434); }
-                    
+                    if e_software.is_none() {
+                        e_software = Self::scrape_ascii_from_tag(data, 0x0131);
+                    }
+                    if e_lens_model.is_none() {
+                        e_lens_model = Self::scrape_ascii_from_tag(data, 0xa434);
+                    }
+
                     // Extra Orientation fallback for Sony MakerNotes (Tag 0x2000)
                     if e_orientation.is_none() || e_orientation == Some(1) {
                         if let Some(so) = Self::scrape_u16_from_tag(data, 0x2000) {
-                             if (1..=8).contains(&so) { e_orientation = Some(so as u32); }
+                            if (1..=8).contains(&so) {
+                                e_orientation = Some(so as u32);
+                            }
                         }
                     }
                 }
             }
-            
+
             // Re-update taken_date if we found e_date_time via binary fallback
             if taken_date == file_info.modified {
-                 if let Some(dt) = e_date_time.as_ref() {
-                     if let Some(ts) = t_utils::meta_date_to_timestamp(dt) {
-                         taken_date = Some(ts);
-                     }
-                 }
+                if let Some(dt) = e_date_time.as_ref() {
+                    if let Some(ts) = t_utils::meta_date_to_timestamp(dt) {
+                        taken_date = Some(ts);
+                    }
+                }
             }
         } else if file_type == 2 {
             taken_date = e_date_time
@@ -1015,7 +1037,8 @@ impl AFile {
     /// Extracts an EXIF field as a string.
     pub fn get_exif_field(exif: &Option<exif::Exif>, tag: Tag) -> Option<String> {
         let ex = exif.as_ref()?;
-        let field = ex.get_field(tag, In::PRIMARY)
+        let field = ex
+            .get_field(tag, In::PRIMARY)
             .or_else(|| ex.fields().find(|f| f.tag == tag))?;
 
         let raw = match &field.value {
@@ -1112,8 +1135,10 @@ impl AFile {
 
     fn scrape_ascii_from_tag(data: &[u8], tag_id: u16) -> Option<String> {
         // Find the TIFF base (where the EXIF/TIFF header starts)
-        let tiff_base = data.windows(4).position(|w| w == b"II\x2a\x00" || w == b"MM\x00\x2a")?;
-        
+        let tiff_base = data
+            .windows(4)
+            .position(|w| w == b"II\x2a\x00" || w == b"MM\x00\x2a")?;
+
         let target_le = [(tag_id & 0xFF) as u8, (tag_id >> 8) as u8, 0x02, 0x00];
         let target_be = [(tag_id >> 8) as u8, (tag_id & 0xFF) as u8, 0x00, 0x02];
 
@@ -1148,8 +1173,7 @@ impl AFile {
                             .trim()
                             .to_string();
                         if !s.is_empty()
-                            && s.chars()
-                                .all(|c| c.is_ascii_graphic() || c.is_whitespace())
+                            && s.chars().all(|c| c.is_ascii_graphic() || c.is_whitespace())
                         {
                             return Some(s);
                         }
@@ -2472,8 +2496,11 @@ impl AThumb {
                                 Err(_) => (None, 1),   // error
                             }
                             #[cfg(not(target_os = "macos"))]
-                            match t_video::get_video_thumbnail_sync(file_path, thumbnail_size, known_duration)
-                            {
+                            match t_video::get_video_thumbnail_sync(
+                                file_path,
+                                thumbnail_size,
+                                known_duration,
+                            ) {
                                 Ok(Some(data)) => (Some(data), 0),
                                 Ok(None) => (None, 1), // empty thumb
                                 Err(_) => (None, 1),   // error
@@ -2849,9 +2876,14 @@ impl AThumb {
         tauri::async_runtime::spawn(async move {
             let generated = tauri::async_runtime::spawn_blocking(move || {
                 let duration = if file_type == 2 {
-                    AFile::get_file_info(file_id).ok().flatten().and_then(|f| f.duration.map(|d| d as u64))
-                } else { None };
-                
+                    AFile::get_file_info(file_id)
+                        .ok()
+                        .flatten()
+                        .and_then(|f| f.duration.map(|d| d as u64))
+                } else {
+                    None
+                };
+
                 Self::get_or_create_thumb(
                     file_id,
                     &file_path,
@@ -2914,7 +2946,14 @@ impl AThumb {
             }
         }
 
-        Self::create_cache_backed_thumb(file_id, file_path, file_type, orientation, thumbnail_size, known_duration)
+        Self::create_cache_backed_thumb(
+            file_id,
+            file_path,
+            file_type,
+            orientation,
+            thumbnail_size,
+            known_duration,
+        )
     }
 
     /// fetch raw thumbnail bytes for protocol handler

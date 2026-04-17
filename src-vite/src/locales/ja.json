@@ -50,6 +50,11 @@
     "index": {
       "wait_index": "スキャンを待機中...",
       "indexing": "スキャン中... {count} / {total}",
+      "discovering": "アルバムをスキャン中... {count} / {total}",
+      "preparing_previews": "プレビューを生成中... {count} / {total}",
+      "preparing_search": "検索インデックスを準備中... {count} / {total}",
+      "complete": "スキャン完了",
+      "complete_with_issues": "スキャン完了（{count} 件の問題あり）",
       "paused": "スキャンを一時停止中",
       "description": "検索とプレビューのためにサムネイルを生成しています。大きなアルバムの場合は数分かかることがあります。",
       "cancel": "スキャンをキャンセル",

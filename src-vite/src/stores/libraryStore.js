@@ -92,8 +92,14 @@ export const useLibraryStore = defineStore('libraryStore', {
       /** @type {number[]} */
       pausedAlbumIds: [],     // paused albums
       albumName: '',          // current album name
+      phase: 'discovering',   // current scan phase
+      discovered: 0,          // current album's discovered count
+      processed: 0,           // current album's processed count
+      searchReady: 0,         // current album's embedding-ready count
       indexed: 0,             // current album's indexed count
       total: 0,               // current album's total count
+      searchTotal: 0,         // current album's searchable total
+      failed: 0,              // current album's failed count
     },
   }),
 
@@ -118,6 +124,7 @@ export const useLibraryStore = defineStore('libraryStore', {
           });
         }
         this.index.status = Number(this.index.status || 0);
+        this.index.phase = this.index.phase || 'discovering';
         this.index.pausedAlbumIds = Array.isArray(this.index.pausedAlbumIds)
           ? Array.from(new Set(this.index.pausedAlbumIds.map(id => Number(id)).filter(id => id > 0)))
           : [];
@@ -163,8 +170,14 @@ export const useLibraryStore = defineStore('libraryStore', {
               albumQueue: this.index.albumQueue,
               pausedAlbumIds: this.index.pausedAlbumIds,
               albumName: this.index.albumName,
+              phase: this.index.phase,
+              discovered: this.index.discovered,
+              processed: this.index.processed,
+              searchReady: this.index.searchReady,
               indexed: this.index.indexed,
               total: this.index.total,
+              searchTotal: this.index.searchTotal,
+              failed: this.index.failed,
             },
             person: this.person,
           };

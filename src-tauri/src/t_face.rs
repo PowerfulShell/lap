@@ -87,7 +87,7 @@ impl FaceEngine {
         // Resolve paths
         let resource_dir = app
             .path()
-            .resolve("resources/models", tauri::path::BaseDirectory::Resource)
+            .resolve("models", tauri::path::BaseDirectory::Resource)
             .map_err(|e| format!("Failed to resolve resource path: {}", e))?;
 
         let detection_model_path = resource_dir.join(t_common::DETECTION_MODEL);

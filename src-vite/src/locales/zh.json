@@ -50,6 +50,11 @@
     "index": {
       "wait_index": "等待扫描...",
       "indexing": "正在扫描... {count}/{total}",
+      "discovering": "正在扫描相册... {count}/{total}",
+      "preparing_previews": "正在生成预览... {count}/{total}",
+      "preparing_search": "正在准备搜索索引... {count}/{total}",
+      "complete": "扫描完成",
+      "complete_with_issues": "扫描完成，但有 {count} 个问题",
       "paused": "扫描已暂停",
       "description": "生成缩略图用于搜索和快速预览。大型相册可能需要几分钟。",
       "cancel": "取消扫描",

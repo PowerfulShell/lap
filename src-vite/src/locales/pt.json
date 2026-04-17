@@ -50,6 +50,11 @@
     "index": {
       "wait_index": "Aguardando escaneamento...",
       "indexing": "Escaneando... {count} / {total}",
+      "discovering": "Escaneando álbum... {count} / {total}",
+      "preparing_previews": "Gerando miniaturas... {count} / {total}",
+      "preparing_search": "Preparando pesquisa... {count} / {total}",
+      "complete": "Varredura concluída",
+      "complete_with_issues": "Varredura concluída com {count} problemas",
       "paused": "Varredura em pausa",
       "description": "Gerando miniaturas para pesquisa e pré-visualização. Pode levar alguns minutos.",
       "cancel": "Cancelar escaneamento",

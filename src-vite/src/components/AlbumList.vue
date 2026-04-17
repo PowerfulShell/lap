@@ -608,8 +608,14 @@ const clickRemoveAlbum = async () => {
     removePausedAlbum(albumId);
     if ((libConfig.index.albumQueue as any[]).length === 0 && (libConfig.index.pausedAlbumIds as any[]).length === 0) {
       libConfig.index.albumName = '';
+      libConfig.index.phase = 'discovering';
+      libConfig.index.discovered = 0;
+      libConfig.index.processed = 0;
+      libConfig.index.searchReady = 0;
       libConfig.index.indexed = 0;
       libConfig.index.total = 0;
+      libConfig.index.searchTotal = 0;
+      libConfig.index.failed = 0;
     }
     syncIndexStatus();
 

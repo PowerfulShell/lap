@@ -50,6 +50,11 @@
     "index": {
       "wait_index": "Wait for scan...",
       "indexing": "Scanning... {count} / {total}",
+      "discovering": "Scanning album... {count} / {total}",
+      "preparing_previews": "Generating previews... {count} / {total}",
+      "preparing_search": "Preparing search... {count} / {total}",
+      "complete": "Scan complete",
+      "complete_with_issues": "Scan complete with {count} issues",
       "paused": "Scanning paused",
       "description": "Generating thumbnails for search and quick preview. Large albums may take a few minutes.",
       "cancel": "Cancel scan",

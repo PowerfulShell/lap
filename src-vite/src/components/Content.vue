@@ -1831,8 +1831,14 @@ async function processNextAlbum(skipFilePath: string | null = null, skipRecovery
         id => Number(id) !== Number(albumId)
       );
       libConfig.index.albumName = album.name;
+      libConfig.index.phase = 'discovering';
+      libConfig.index.discovered = 0;
+      libConfig.index.processed = 0;
+      libConfig.index.searchReady = 0;
       libConfig.index.indexed = 0;
       libConfig.index.total = 0;
+      libConfig.index.searchTotal = 0;
+      libConfig.index.failed = 0;
       await indexAlbum(albumId, skipFilePath || null);
     } else {
       // album not found (maybe deleted), remove from queue and process next
@@ -1942,9 +1948,12 @@ const statusBarIsUpdateAnimating = computed(() =>
 );
 
 const statusBarScanText = computed(() => {
-  const album = libConfig.index.albumName || '';
-  const count = Number(libConfig.index.indexed || 0).toLocaleString();
+  const discovered = Number(libConfig.index.discovered || 0).toLocaleString();
+  const processed = Number(libConfig.index.processed || libConfig.index.indexed || 0).toLocaleString();
+  const searchReady = Number(libConfig.index.searchReady || 0).toLocaleString();
   const total = Number(libConfig.index.total || 0).toLocaleString();
+  const searchTotal = Number(libConfig.index.searchTotal || 0).toLocaleString();
+  const phase = String(libConfig.index.phase || 'discovering');
 
   if (statusBarScanMode.value === 'waiting') {
     return localeMsg.value.search.index.wait_index || 'Wait for scan...';
@@ -1954,8 +1963,26 @@ const statusBarScanText = computed(() => {
   }
   if (statusBarScanMode.value !== 'current') return '';
 
-  return localeMsg.value.search.index.indexing
-    .replace('{count}', count)
+  if (phase === 'preparing_previews') {
+    return (localeMsg.value.search.index.preparing_previews || 'Generating previews... {count} / {total}')
+      .replace('{count}', processed)
+      .replace('{total}', total);
+  }
+  if (phase === 'preparing_search') {
+    return (localeMsg.value.search.index.preparing_search || 'Preparing search... {count} / {total}')
+      .replace('{count}', searchReady)
+      .replace('{total}', searchTotal);
+  }
+  if (phase === 'complete') {
+    if (Number(libConfig.index.failed || 0) > 0) {
+      return (localeMsg.value.search.index.complete_with_issues || 'Scan complete with {count} issues')
+        .replace('{count}', Number(libConfig.index.failed || 0).toLocaleString());
+    }
+    return localeMsg.value.search.index.complete || 'Scan complete';
+  }
+
+  return (localeMsg.value.search.index.discovering || 'Scanning library... {count} / {total}')
+    .replace('{count}', discovered)
     .replace('{total}', total);
 });
 
@@ -2065,7 +2092,7 @@ async function scheduleScanStreamingPull(albumId: number, current: number) {
     scanStreamRequestInFlight.value = false;
     if (scanStreamPullPending.value) {
       scanStreamPullPending.value = false;
-      await scheduleScanStreamingPull(albumId, libConfig.index.indexed);
+      await scheduleScanStreamingPull(albumId, libConfig.index.discovered);
     }
   }
 }
@@ -2090,9 +2117,9 @@ function queueScanStreamingPull(albumId: number, current: number) {
       isScanStreamingMode.value &&
       currentAlbumId > 0 &&
       libConfig.index.albumQueue.includes(currentAlbumId) &&
-      Number(libConfig.index.indexed || 0) > fileList.value.length
+      Number(libConfig.index.discovered || 0) > fileList.value.length
     ) {
-      queueScanStreamingPull(currentAlbumId, Number(libConfig.index.indexed || 0));
+      queueScanStreamingPull(currentAlbumId, Number(libConfig.index.discovered || 0));
     }
   }, 300);
 }
@@ -2153,21 +2180,21 @@ watch(
       if (scanStreamAlbumId.value !== targetAlbumId) {
         enterScanStreamingMode(targetAlbumId);
       }
-      queueScanStreamingPull(targetAlbumId, Number(libConfig.index.indexed || 0));
+      queueScanStreamingPull(targetAlbumId, Number(libConfig.index.discovered || 0));
     }
   }
 );
 
 watch(
-  () => [libConfig.index.indexed, libConfig.album.id, config.main.sidebarIndex, libConfig.album.selected],
-  ([indexed, albumId, sidebarIndex, selected]) => {
+  () => [libConfig.index.discovered, libConfig.album.id, config.main.sidebarIndex, libConfig.album.selected],
+  ([discovered, albumId, sidebarIndex, selected]) => {
     if (
       sidebarIndex === 0 &&
       Number(albumId) > 0 &&
       libConfig.index.albumQueue.includes(Number(albumId)) &&
-      Number(indexed || 0) >= 0
+      Number(discovered || 0) >= 0
     ) {
-      queueScanStreamingPull(Number(albumId), Number(indexed || 0));
+      queueScanStreamingPull(Number(albumId), Number(discovered || 0));
     }
   },
   { immediate: true }
@@ -2245,10 +2272,16 @@ onMounted( async() => {
 
   // Indexing listeners
   unlistenIndexProgress = await listenIndexProgress(async (event: any) => {
-    const { album_id, current, total, current_size } = event.payload;
+    const { album_id, phase, current, discovered, processed, search_ready, total, search_total, current_size, failed } = event.payload;
     if (libConfig.index.albumQueue.length > 0 && libConfig.index.albumQueue[0] === album_id) {
-        libConfig.index.indexed = current;
-        libConfig.index.total = total;
+        libConfig.index.phase = String(phase || libConfig.index.phase || 'discovering');
+        libConfig.index.discovered = Number(discovered || 0);
+        libConfig.index.processed = Number(processed || current || 0);
+        libConfig.index.searchReady = Number(search_ready || 0);
+        libConfig.index.indexed = Number(processed || current || 0);
+        libConfig.index.total = Number(total || 0);
+        libConfig.index.searchTotal = Number(search_total || 0);
+        libConfig.index.failed = Number(failed || 0);
         if (
           config.main.sidebarIndex === 0 &&
           Number(libConfig.album.id || 0) === Number(album_id || 0)
@@ -2259,7 +2292,7 @@ onMounted( async() => {
   });
 
   unlistenIndexFinished = await listenIndexFinished(async (event: any) => {
-    const { album_id } = event.payload;
+    const { album_id, phase, indexed, processed, search_ready, total, search_total, failed } = event.payload;
     // notify album list to update cover
     await tauriEmit('album-cover-changed', { albumId: album_id, fileId: null });
     const shouldRefreshCurrentView =
@@ -2268,6 +2301,14 @@ onMounted( async() => {
       Number(libConfig.album.id) === Number(album_id);
 
     if (libConfig.index.albumQueue.length > 0 && libConfig.index.albumQueue[0] === album_id) {
+      libConfig.index.phase = String(phase || 'complete');
+      libConfig.index.discovered = Number(total || 0);
+      libConfig.index.processed = Number(processed || indexed || 0);
+      libConfig.index.searchReady = Number(search_ready || 0);
+      libConfig.index.indexed = Number(processed || indexed || 0);
+      libConfig.index.total = Number(total || 0);
+      libConfig.index.searchTotal = Number(search_total || 0);
+      libConfig.index.failed = Number(failed || 0);
       libConfig.index.albumQueue.shift();
       if (libConfig.index.albumQueue.length > 0) {
         processNextAlbum();
@@ -2941,7 +2982,7 @@ async function updateContent(force = false) {
     nextAlbumId > 0
   ) {
     enterScanStreamingMode(nextAlbumId);
-    queueScanStreamingPull(nextAlbumId, Number(libConfig.index.indexed || 0));
+    queueScanStreamingPull(nextAlbumId, Number(libConfig.index.discovered || 0));
     return;
   }
 

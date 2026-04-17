@@ -28,6 +28,13 @@ use serde_json::Value;
 
 static SIDE_CAR_DIR: OnceCell<PathBuf> = OnceCell::new();
 
+fn thumbnail_ffmpeg_threads() -> usize {
+    let logical_cores = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
+    if logical_cores <= 8 { 2 } else { 4 }
+}
+
 pub fn init_ffmpeg_path(app: &AppHandle) {
     // 1. In development, prioritize the source directory
     #[cfg(debug_assertions)]
@@ -42,7 +49,7 @@ pub fn init_ffmpeg_path(app: &AppHandle) {
 
     // 2. Production: use resource_dir
     if let Ok(res_dir) = app.path().resource_dir() {
-        let _ = SIDE_CAR_DIR.set(res_dir.join("resources").join("ffmpeg"));
+        let _ = SIDE_CAR_DIR.set(res_dir.join("ffmpeg"));
     }
 }
 
@@ -189,12 +196,13 @@ pub async fn get_video_thumbnail(file_path: &str, thumbnail_size: u32, known_dur
         get_video_duration(file_path).await.unwrap_or(0)
     };
     let seek_time = if duration > 10 { duration / 10 } else { 0 };
+    let ffmpeg_threads = thumbnail_ffmpeg_threads().to_string();
 
     let mut cmd = ffmpeg_command();
 
     let args = ["-ss", &seek_time.to_string(), "-i", file_path, "-vframes", "1", "-f", "image2", "-update", "1",
               "-vf", &format!("scale=w={}:h={}:force_original_aspect_ratio=increase,crop={}:{}", thumbnail_size, thumbnail_size, thumbnail_size, thumbnail_size),
-              "-c:v", "mjpeg", "-threads", "1", "pipe:1"];
+              "-c:v", "mjpeg", "-threads", ffmpeg_threads.as_str(), "pipe:1"];
     cmd.args(args);
     #[cfg(target_os = "windows")] { cmd.creation_flags(0x08000000); }
 
@@ -213,7 +221,7 @@ pub async fn get_video_thumbnail(file_path: &str, thumbnail_size: u32, known_dur
             let mut fallback = ffmpeg_command();
             fallback.args(["-i", file_path, "-vframes", "1", "-f", "image2", "-update", "1",
                            "-vf", &format!("scale=w={}:h={}:force_original_aspect_ratio=increase,crop={}:{}", thumbnail_size, thumbnail_size, thumbnail_size, thumbnail_size),
-                           "-c:v", "mjpeg", "-threads", "1", "pipe:1"]);
+                           "-c:v", "mjpeg", "-threads", ffmpeg_threads.as_str(), "pipe:1"]);
             #[cfg(target_os = "windows")] { fallback.creation_flags(0x08000000); }
             let f_child = fallback.stdin(std::process::Stdio::null()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).kill_on_drop(true).spawn().map_err(|e| e.to_string())?;
             match tokio::time::timeout(std::time::Duration::from_secs(15), f_child.wait_with_output()).await {
@@ -542,6 +550,7 @@ pub async fn prepare_video(app: AppHandle, state: tauri::State<'_, VideoManager>
         cmd.stderr(std::process::Stdio::null());
 
         let this_task_id = state.task_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        #[allow(unused_mut)]
         let mut t_child = cmd.stdin(std::process::Stdio::null()).kill_on_drop(true).spawn().map_err(|e| e.to_string())?;
         
         #[cfg(debug_assertions)]
