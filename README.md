@@ -10,8 +10,10 @@
   </p>
 </div>
 
-Lap is an open-source desktop photo manager and local photo organizer for people who want to browse family albums, find old photos quickly, and manage large personal media libraries offline.
-It is built as a privacy-focused alternative to cloud photo services: no forced upload, local AI photo search, folder-first workflow, and free to use.
+English | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Deutsch](README.de.md) | [Français](README.fr.md) | [Español](README.es.md) | [Português](README.pt.md) | [Русский](README.ru.md)
+
+Lap is an open-source, local-first photo manager for browsing family albums, finding old photos quickly, and managing large personal media libraries offline.
+It is a privacy-focused alternative to cloud photo services: no forced upload, local AI search, folder-first workflow, and free to use.
 
 - Website: [https://julyx10.github.io/lap/](https://julyx10.github.io/lap/)
 - Demo: [https://youtu.be/RbKqNKhbVUs](https://youtu.be/RbKqNKhbVUs)
@@ -26,7 +28,15 @@ Open the [latest release page](https://github.com/julyx10/lap/releases/latest), 
 | **macOS (Apple Silicon)** | `aarch64.dmg` | Notarized by Apple |
 | **macOS (Intel)** | `x64.dmg` | Notarized by Apple |
 | **Windows 10/11 (x64)** | `.msi` | Currently unsigned (SmartScreen warning may appear) |
-| **Ubuntu/Debian (amd64)** | `amd64.deb` | Sanity-checked on Linux Mint |
+| **Ubuntu/Debian (amd64)** | `amd64.deb` | Sanity-checked on Linux Mint. For better video playback support, see the Linux note below. |
+
+### Linux Video Playback Notes
+
+On Ubuntu/Debian/Linux Mint, install these packages for better video playback support:
+
+```bash
+sudo apt install gstreamer1.0-libav gstreamer1.0-plugins-good
+```
 
 ## Screenshots
 
@@ -50,7 +60,7 @@ Open the [latest release page](https://github.com/julyx10/lap/releases/latest), 
 
 ## Features
 
-- **Browse and filter** by date, location, camera, lens, tags, favorites, ratings, and faces(BETA).
+- **Browse and filter** by date, location, camera, lens, tags, favorites, ratings, and faces (BETA).
 - **Manage multiple libraries** and switch between them quickly.
 - **Find duplicates** and batch move unwanted copies to trash.
 - **Edit in place** with crop, rotate, flip, resize, and basic adjustments.
@@ -61,12 +71,14 @@ Open the [latest release page](https://github.com/julyx10/lap/releases/latest), 
 
 ## Planned Features
 
-- **Support more image and video formats** such as Live Photos and Motion Photos.
-- **Expand metadata support** for standards commonly used in photography workflows, including EXIF, XMP, and IPTC.
+- **Support Live Photos and Motion Photos** for mixed photo/video workflows.
+- **Expand metadata support** for EXIF, XMP, and IPTC workflows.
 
 ## Build from Source
 
 Requirements: Node.js 20+, pnpm, Rust stable.
+
+For Linux runtime video playback, see the package note in the download section above.
 
 ```bash
 # macOS system deps
@@ -94,7 +106,7 @@ cargo tauri dev
 | :--- | :--- |
 | Images | JPG/JPEG, PNG, GIF, BMP, TIFF, WebP, HEIC/HEIF, AVIF, JXL |
 | RAW photos | CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, RAF, RW2, ORF, PEF, DNG, SRW, RWL, MRW, 3FR, MOS, DCR, KDC, ERF, MEF, RAW, MDC |
-| Videos | MP4, MOV, M4V, MKV, AVI, FLV, TS/M2TS, WMV, WebM, 3GP/3G2, F4V, VOB, MPG/MPEG, ASF, DIVX and more. H.264 is supported on all platforms. HEVC/H.265 and VP9 are natively supported on macOS. |
+| Videos | MP4, MOV, M4V, MKV, AVI, FLV, TS/M2TS, WMV, WebM, 3GP/3G2, F4V, VOB, MPG/MPEG, ASF, DIVX and more. H.264 playback is supported on all platforms, with automatic compatibility processing when native playback is unavailable. HEVC/H.265 and VP9 are natively supported on macOS. |
 
 ## Architecture
 

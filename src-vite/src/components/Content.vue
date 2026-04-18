@@ -118,7 +118,7 @@
           <TButton
             :icon="IconFilmstrip"
             :iconStyle="{ 
-              transform: `rotate(${config.settings.grid.previewPosition === 1 ? 180 : (config.settings.grid.previewPosition === 2 ? 270 : (config.settings.grid.previewPosition === 3 ? 90 : 0))}deg)`, 
+              transform: `rotate(${config.settings.grid.previewPosition === 0 ? 180 : (config.settings.grid.previewPosition === 2 ? 90 : (config.settings.grid.previewPosition === 3 ? 270 : 0))}deg)`, 
               transition: 'transform 0.3s ease-in-out' 
             }" 
             :tooltip="localeMsg.settings.filmstrip_view.title"
