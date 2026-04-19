@@ -30,6 +30,7 @@ mod t_migration;
 mod t_protocol;
 mod t_sqlite;
 mod t_utils;
+mod t_http;
 mod t_video;
 
 /// The main function is the entry point for the Tauri application.
@@ -98,6 +99,10 @@ async fn main() {
             if let Err(e) = t_sqlite::create_db() {
                 eprintln!("Failed to initialize database: {}", e);
             }
+
+            // Initialize video HTTP server for Linux
+            #[cfg(target_os = "linux")]
+            t_http::init_video_http_server();
 
             // Cleanup video cache
             t_video::init_video_cache(&_app.handle());

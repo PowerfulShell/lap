@@ -47,7 +47,7 @@ import { config } from '@/common/config';
 import { IconVideoSlash, IconVideoPlay, IconVideoReplay } from '@/common/icons';
 import videojs from 'video.js/core';
 import 'video.js/dist/video-js.min.css';
-import { getAssetSrc } from '@/common/utils';
+import { getAssetSrc, isLinux } from '@/common/utils';
 import { openFileWithApp } from '@/common/api';
 import zhCN from 'video.js/dist/lang/zh-CN.json';
 import { prepareVideo, cancelVideoPrepare } from '@/common/video';
@@ -320,35 +320,46 @@ const loadVideo = async (filePath: string) => {
     }
   };
 
-  const tryPlayProcessed = async () => {
+  const loadPrepared = async (force: string | null = null) => {
     try {
-      // The file already failed direct playback, so request a processed fallback
-      // without bypassing the backend's remux/transcode strategy.
-      const result = await prepareVideo(filePath, String(nextUpIndex), 'fallback');
+      const result = await prepareVideo(filePath, String(nextUpIndex), force);
       if (currentLoadId !== currentLoadingId) return;
+      const playbackSrc = isLinux ? result.url : getAssetSrc(result.url);
 
       player.reset();
       player.src({
-        src: getAssetSrc(result.url),
+        src: playbackSrc,
         type: result.action === 'remux' ? 'video/mp4' : (result.url.endsWith('.webm') ? 'video/webm' : 'video/mp4'),
       });
 
-      const onLoadedFallback = () => {
-        player.off('error', onErrorFallback);
+      const onLoaded = () => {
+        player.off('error', onError);
         handleSuccessfulLoad();
       };
 
-      const onErrorFallback = () => {
+      const onError = () => {
         if (currentLoadId !== currentLoadingId) return;
+        player.off('loadeddata', onLoaded);
+        player.off('error', onError);
+
+        const err = player.error();
+        if (err && err.code === 1) {
+          return;
+        }
+
+        if (!force) {
+          console.warn('[Video] Initial playback failed, retrying with processed fallback...');
+          loadPrepared('fallback');
+          return;
+        }
+
         isLoading.value = false;
         showSpinner.value = false;
         handlePlayerError(player);
-        player.off('loadeddata', onLoadedFallback);
-        player.off('error', onErrorFallback);
       };
 
-      player.one('loadeddata', onLoadedFallback);
-      player.one('error', onErrorFallback);
+      player.one('loadeddata', onLoaded);
+      player.one('error', onError);
       player.load();
     } catch (e) {
       if (currentLoadId !== currentLoadingId) return;
@@ -359,41 +370,7 @@ const loadVideo = async (filePath: string) => {
       errorMessage.value = getPrepareErrorMessage(e);
     }
   };
-
-  const tryPlayDirect = () => {
-    player.src({ src: getAssetSrc(filePath) });
-
-    const onLoadedDirect = () => {
-      player.off('error', onErrorDirect);
-      handleSuccessfulLoad();
-    };
-
-    const onErrorDirect = () => {
-      player.off('loadeddata', onLoadedDirect);
-      const err = player.error();
-      if (err && err.code === 1) {
-        return; // Aborted
-      }
-      if (currentLoadId !== currentLoadingId) return;
-      
-      console.warn('[Video] Direct play failed (code ' + err?.code + '), falling back to FFmpeg processing...');
-      tryPlayProcessed();
-    };
-
-    player.one('loadeddata', onLoadedDirect);
-    player.one('error', onErrorDirect);
-    player.load();
-  };
-
-  // Start by checking if we should skip direct play for problematic formats
-  const ext = filePath.split('.').pop()?.toLowerCase();
-  // TODO: Remove this when we support MPG/MPEG
-  if (ext === 'mpg' || ext === 'mpeg') {
-    console.warn('[Video] Skipping direct play for legacy format:', ext);
-    tryPlayProcessed();
-  } else {
-    tryPlayDirect();
-  }
+  loadPrepared();
 };
 
 function getFallbackErrorMessage() {

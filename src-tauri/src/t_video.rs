@@ -54,6 +54,18 @@ pub fn init_ffmpeg_path(app: &AppHandle) {
     }
 }
 
+/// Get video url for different platforms
+fn platform_video_url(file_path: &str) -> Result<String, String> {
+    #[cfg(target_os = "linux")]
+    {
+        crate::t_http::make_video_stream_url(file_path)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(file_path.to_string())
+    }
+}
+
 /// Manages active FFmpeg/FFprobe processes, allowing per-player cancellation.
 pub struct VideoManager {
     pub active_processes: Mutex<HashMap<String, (u64, tokio::process::Child)>>,
@@ -791,7 +803,7 @@ pub async fn prepare_video(
 
     if action == VideoAction::Direct && !force_process && !force_fallback {
         return Ok(VideoPrepareResult {
-            url: file_path,
+            url: platform_video_url(&file_path)?,
             action: VideoAction::Direct,
         });
     }
@@ -818,7 +830,7 @@ pub async fn prepare_video(
         let _ = tokio::fs::create_dir_all(&temp_dir).await;
     }
 
-    let ext = "mp4"; // Use MP4 for all platforms as it's the most compatible container for WebViews
+    let ext = "mp4"; // Use MP4 for platforms with reliable built-in H.264 playback in the embedded WebView
     let cache_name = get_cache_filename_async(&file_path, ext).await;
     let output_path = temp_dir.join(&cache_name);
     // Fixed Concurrency: include player_id in tmp name to avoid contention
@@ -828,7 +840,7 @@ pub async fn prepare_video(
     if let Ok(meta) = tokio::fs::metadata(&output_path).await {
         if meta.len() > 32 * 1024 && force.is_none() {
             return Ok(VideoPrepareResult {
-                url: output_path.to_string_lossy().to_string(),
+                url: platform_video_url(output_path.to_string_lossy().as_ref())?,
                 action: current_action,
             });
         }
@@ -954,7 +966,7 @@ pub async fn prepare_video(
             if output_path.exists() {
                 let _ = tokio::fs::remove_file(&tmp_path).await;
                 return Ok(VideoPrepareResult {
-                    url: output_path.to_string_lossy().to_string(),
+                    url: platform_video_url(output_path.to_string_lossy().as_ref())?,
                     action: current_action,
                 });
             }
@@ -965,7 +977,7 @@ pub async fn prepare_video(
                     auto_cleanup_video_cache_async(td).await;
                 });
                 return Ok(VideoPrepareResult {
-                    url: output_path.to_string_lossy().to_string(),
+                    url: platform_video_url(output_path.to_string_lossy().as_ref())?,
                     action: current_action,
                 });
             }
