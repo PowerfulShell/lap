@@ -503,10 +503,19 @@ const confirmDelete = (lib: any) => {
 const doDeleteLibrary = async () => {
   if (!libraryToDelete.value) return;
   try {
-    await removeLibrary(libraryToDelete.value.id);
+    const deletedId = libraryToDelete.value.id;
+    const wasCurrent = deletedId === currentLibraryId.value;
+    await removeLibrary(deletedId);
     showDeleteConfirm.value = false;
     libraryToDelete.value = null;
     await loadLibraries();
+
+    // If we just deleted the active library, the backend has already switched
+    // current_library_id. Emit 'ok' so Home.vue reloads the new library's state.
+    if (wasCurrent) {
+      selectedLibraryId.value = currentLibraryId.value;
+      emit('ok', { type: 'switch', id: currentLibraryId.value });
+    }
   } catch (error) {
     console.error(error);
   }

@@ -635,16 +635,22 @@ pub fn remove_library(id: &str) -> Result<(), String> {
 
     save_app_config(&config)?;
 
-    // Delete the database file
+    // Delete the database file and SQLite WAL/SHM companion files
     let db_path = get_library_db_path(id)?;
-    if std::path::Path::new(&db_path).exists() {
-        fs::remove_file(&db_path).map_err(|e| format!("Failed to delete database file: {}", e))?;
+    let db = std::path::Path::new(&db_path);
+    for path in [
+        db.to_path_buf(),
+        db.with_extension("db-wal"),
+        db.with_extension("db-shm"),
+    ] {
+        if path.exists() {
+            let _ = fs::remove_file(&path);
+        }
     }
 
     let thumb_cache_dir = get_app_cache_dir()?.join(id);
     if thumb_cache_dir.exists() {
-        fs::remove_dir_all(&thumb_cache_dir)
-            .map_err(|e| format!("Failed to delete thumbnail cache directory: {}", e))?;
+        let _ = fs::remove_dir_all(&thumb_cache_dir);
     }
 
     Ok(())

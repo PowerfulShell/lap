@@ -676,8 +676,17 @@ async fn analyze_strategy(json: &Value, file_path: &str) -> VideoAction {
                 VideoAction::Transcode
             };
         }
-        // HEVC in MP4/MOV: Remux to MP4 container; frontend fallback will transcode if WebView can't decode
+        #[cfg(target_os = "windows")]
         if v_codec == "hevc" && (is_mp4 || is_mov) && a_ok {
+            // Edge WebView2 can accept the container while still failing video decode,
+            // which shows up as audio-only playback for some MOV/HEVC files.
+            return VideoAction::Transcode;
+        }
+
+        #[cfg(target_os = "linux")]
+        if v_codec == "hevc" && (is_mp4 || is_mov) && a_ok {
+            // Linux WebKitGTK support varies by distro/codec pack. Keep the cheaper remux path
+            // and let the frontend fall back to an external player if decode still fails.
             return VideoAction::Remux;
         }
     }
