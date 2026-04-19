@@ -2,10 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 export interface VideoPrepareResult {
   url: string;
-  is_remuxed: boolean;
-  mime_type: string;
   action: string;
-  duration_secs: number;
 }
 
 export async function prepareVideo(
