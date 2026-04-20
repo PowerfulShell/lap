@@ -13,8 +13,8 @@ hero:
       text: Download
       link: https://github.com/julyx10/lap/releases/latest
     - theme: alt
-      text: What's New in v0.1.13
-      link: /guide/release-notes/v0.1.13
+      text: What's New in v0.2.0
+      link: /guide/release-notes/v0.2.0
     - theme: alt
       text: View on GitHub
       link: https://github.com/julyx10/lap
