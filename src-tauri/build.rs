@@ -13,9 +13,98 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn main() {
     write_build_info();
     build_libraw();
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_os != "macos" {
+        build_libheif();
+    }
 
     // build tauri
     tauri_build::build();
+}
+
+fn build_libheif() {
+    println!("cargo:rerun-if-changed=third_party/libheif");
+
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let source_dir = manifest_dir.join("third_party").join("libheif");
+    if !source_dir.exists() {
+        println!(
+            "cargo:warning=libheif submodule not found at {}. Add it under src-tauri/third_party/libheif to enable HEIC/HEIF decoding on Windows/Linux.",
+            source_dir.display()
+        );
+        return;
+    }
+
+    // NOTE: We intentionally keep this build minimal and static, mirroring the libjpeg-turbo approach.
+    // The exact codec backends (libde265/dav1d/aom) depend on how libheif is vendored/configured.
+    let out_dir = out_dir_path();
+    let build_root = out_dir.join("libheif-build");
+    let binary_dir = build_root.join("build");
+    fs::create_dir_all(&binary_dir).unwrap();
+
+    let is_windows = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows";
+
+    // Configure
+    let mut configure = Command::new("cmake");
+    if !is_windows {
+        configure.arg("-G").arg("Unix Makefiles");
+    }
+    configure
+        .arg("-DCMAKE_BUILD_TYPE=Release")
+        .arg("-DBUILD_SHARED_LIBS=OFF")
+        .arg("-DWITH_EXAMPLES=OFF")
+        .arg("-DWITH_GDK_PIXBUF=OFF")
+        .arg("-DWITH_RAV1E=OFF")
+        .arg("-DWITH_AOM=OFF")
+        .arg("-DWITH_DAV1D=ON")
+        .arg("-DWITH_LIBDE265=ON")
+        .arg(source_dir.as_os_str())
+        .current_dir(&binary_dir);
+
+    run_command(&mut configure, "configure libheif");
+
+    let jobs = env::var("NUM_JOBS").unwrap_or_else(|_| "1".to_string());
+    run_command(
+        Command::new("cmake")
+            .arg("--build")
+            .arg(".")
+            .arg("--config")
+            .arg("Release")
+            .arg("--parallel")
+            .arg(jobs)
+            .current_dir(&binary_dir),
+        "build libheif",
+    );
+
+    // Link - locate the static library output.
+    // libheif's output name differs across platforms/build systems; keep it permissive.
+    let candidates: [(&str, PathBuf); 6] = [
+        ("heif", binary_dir.join("libheif.a")),
+        ("heif", binary_dir.join("Release").join("libheif.a")),
+        ("heif", binary_dir.join("heif.lib")),
+        ("heif", binary_dir.join("Release").join("heif.lib")),
+        ("libheif", binary_dir.join("libheif.lib")),
+        ("libheif", binary_dir.join("Release").join("libheif.lib")),
+    ];
+
+    let (lib_name, lib_path) = match candidates.iter().find(|(_, p)| p.exists()) {
+        Some((name, path)) => (name.to_string(), path.clone()),
+        None => {
+            println!(
+                "cargo:warning=libheif build completed but static library was not found under {}",
+                binary_dir.display()
+            );
+            return;
+        }
+    };
+
+    let lib_dir = lib_path.parent().unwrap_or(&binary_dir);
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=static={}", lib_name);
+    if !is_windows {
+        // Some libheif builds depend on stdc++.
+        println!("cargo:rustc-link-lib=stdc++");
+    }
 }
 
 /// writes the build information to a file
@@ -211,7 +300,6 @@ fn build_libjpeg(manifest_dir: &Path, out_dir: &Path, is_windows: bool) -> Optio
         lib_dir: final_lib_dir,
         lib_name: lib_name.to_string(),
     })
-
 }
 
 /// Recursively collect all .cpp files under a directory

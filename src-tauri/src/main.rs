@@ -21,6 +21,8 @@ mod t_config;
 mod t_dedup;
 mod t_face;
 mod t_image;
+#[cfg(not(target_os = "macos"))]
+mod t_heif;
 mod t_jpeg;
 mod t_jxl;
 mod t_lens;

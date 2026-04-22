@@ -18,6 +18,7 @@ dependencies = [
  "imagesize",
  "jxl-oxide",
  "kamadak-exif",
+ "libc",
  "little_exif",
  "ndarray",
  "once_cell",

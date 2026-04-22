@@ -69,6 +69,7 @@ tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
 uuid = { version = "1", features = ["v4"] }
 blake3 = "1.8.3"
 jxl-oxide = { version = "0.12.5", features = ["image"] }
+libc = "0.2"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

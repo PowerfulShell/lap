@@ -4,3 +4,6 @@
 [submodule "src-tauri/third_party/libjpeg-turbo"]
 	path = src-tauri/third_party/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
+[submodule "src-tauri/third_party/libheif"]
+	path = src-tauri/third_party/libheif
+	url = https://github.com/strukturag/libheif.git

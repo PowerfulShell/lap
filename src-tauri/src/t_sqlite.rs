@@ -2512,11 +2512,7 @@ impl AThumb {
                                 Err(_) => (None, 1),   // error
                             }
                             #[cfg(not(target_os = "macos"))]
-                            match t_video::get_video_thumbnail_sync(
-                                file_path,
-                                thumbnail_size,
-                                known_duration,
-                            ) {
+                            match crate::t_heif::get_heif_thumbnail(file_path, orientation, thumbnail_size) {
                                 Ok(Some(data)) => (Some(data), 0),
                                 Ok(None) => (None, 1), // empty thumb
                                 Err(_) => (None, 1),   // error
