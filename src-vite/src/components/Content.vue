@@ -1237,9 +1237,10 @@ function handleItemClicked(index: number, shiftKey: boolean = false) {
   
   checkUnsavedChanges(() => {
     selectedItemIndex.value = index;
-    lastSelectedIndex.value = index;
     if (selectMode.value) {
       handleItemSelectToggled(index, shiftKey);
+    } else {
+      lastSelectedIndex.value = index;
     }
   });
 }
