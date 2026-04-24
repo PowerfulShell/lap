@@ -2782,7 +2782,7 @@ function handleVisibleRangeUpdate({ startIndex, endIndex }: { startIndex: number
   lastVisibleRange = { start: startIndex, end: endIndex };
   
   // Fetch data for visible range + buffer
-  const buffer = 200;
+  const buffer = Math.max(40, Math.min(visibleItemCount.value, 120));
   fetchDataRange(startIndex - buffer, endIndex + buffer);
 }
 
